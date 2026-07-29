@@ -11,6 +11,7 @@ const extensionPageDir = path.join(repoRoot, "extension", "page");
 const extensionAssetsDir = path.join(extensionPageDir, "assets");
 const extensionIconsDir = path.join(repoRoot, "extension", "icons");
 const extensionIconSizes = [16, 32, 48, 128];
+const canGenerateIconsWithSips = process.platform === "darwin" && fs.existsSync(sipsExecutable);
 
 const filesToCopy = [
   "smlCompliance.js",
@@ -46,6 +47,11 @@ for (const assetFile of runtimeAssetFiles) {
 
 const extensionIconSourcePath = path.join(runtimeAssetsDir, "Righteousness.png");
 if (fs.existsSync(extensionIconSourcePath)) {
+  if (!canGenerateIconsWithSips) {
+    console.log("Skipping icon regeneration because sips is unavailable on this platform.");
+    process.exit(0);
+  }
+
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tzedek-icons-"));
 
   try {
