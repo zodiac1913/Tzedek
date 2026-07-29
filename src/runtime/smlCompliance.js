@@ -44,6 +44,9 @@ const ALERT_CLASSES = {
 const INLINE_ALERT_STYLE_ID = "sml-compliance-inline-alert-style";
 const INLINE_ALERT_HOSTS = new WeakMap();
 const INLINE_ALERT_WRAPPERS = new WeakMap();
+const INLINE_ALERT_REPOSITIONERS = new WeakMap();
+const INLINE_ALERT_TOGGLES = new WeakMap();
+let INLINE_ALERT_DISMISS_HANDLERS_BOUND = false;
 const ALERT_LEVEL_PRIORITY = {
   critical: 4,
   error: 3,
@@ -1276,11 +1279,17 @@ function ensureInlineAlertStyles() {
     ".sml-compliance-alert-toggle .bi{font-size:1rem;line-height:1;}",
     ".sml-compliance-alert-count{display:inline-block;min-width:1.1rem;padding:0 0.25rem;border-radius:999px;background:rgba(255,255,255,0.2);font-size:0.75rem;font-weight:700;line-height:1.2;text-align:center;}",
     ".sml-compliance-alert-panes{flex:1 1 auto;min-width:0;text-align:left;position:relative;z-index:2147483643;}",
+    ".sml-compliance-alert-panes-floating{position:fixed !important;top:0;left:0;min-width:50px;width:min(32rem,calc(100vw - 1.5rem));max-width:calc(100vw - 1.5rem);max-height:min(70vh,40rem);overflow:auto;padding-right:0.15rem;z-index:2147483646;}",
     ".sml-compliance-alert-panes[hidden]{display:none !important;}",
-    ".sml-compliance-alert-pane{margin:0 0 0.45rem 0;text-align:left;justify-content:flex-start;align-items:flex-start;position:relative;z-index:2147483643;}",
+    ".sml-compliance-alert-pane{margin:0 0 0.45rem 0;min-width:50px;text-align:left;justify-content:flex-start;align-items:flex-start;position:relative;z-index:2147483643;padding-right:2.75rem;}",
     ".sml-compliance-alert-pane:last-child{margin-bottom:0;}",
     ".sml-compliance-alert-pane[hidden]{display:none !important;}",
     ".sml-compliance-alert-pane{background-repeat:no-repeat;background-position:center;background-size:cover;background-color:transparent !important;backdrop-filter:blur(1px);}",
+    ".sml-compliance-pane-close{position:absolute;top:0.55rem;right:0.55rem;display:inline-flex;align-items:center;justify-content:center;width:1.45rem;height:1.45rem;padding:0;border-radius:999px;border:1px solid currentColor;background:rgba(255,255,255,0.12);color:inherit;font-size:1rem;font-weight:700;line-height:1;cursor:pointer;opacity:0.92;}",
+    ".sml-compliance-pane-close:hover,.sml-compliance-pane-close:focus{opacity:1;transform:scale(1.04);}",
+    ".sml-compliance-pane-close:focus-visible{outline:2px solid #ffffff;outline-offset:2px;}",
+    ".sml-compliance-alert-pane.text-dark .sml-compliance-pane-close{background:rgba(15,23,42,0.08);}",
+    ".sml-compliance-alert-pane.text-white .sml-compliance-pane-close{background:rgba(255,255,255,0.16);}",
     `.sml-compliance-alert-pane.bg-danger{background:linear-gradient(rgba(0,0,0,0.62),rgba(0,0,0,0.62)),url('${SMOKE_IMAGE_URL}') center/cover no-repeat !important;}`,
     `.sml-compliance-alert-pane.bg-warning{background:linear-gradient(rgba(0,0,0,0.58),rgba(0,0,0,0.58)),url('${SMOKE_IMAGE_URL}') center/cover no-repeat !important;}`,
     `.sml-compliance-alert-pane.bg-info{background:linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),url('${SMOKE_IMAGE_URL}') center/cover no-repeat !important;}`,
@@ -1307,6 +1316,11 @@ function ensureInlineAlertStyles() {
     ".sml-compliance-alert-modal-header{margin-left:auto;max-width:min(48rem,95vw);position:relative;z-index:2147483643;isolation:isolate;}",
     ".sml-compliance-fix-actions{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem;}",
     ".sml-compliance-btn,.sml-compliance-alert-toggle,.sml-compliance-fix-btn{display:inline-flex;align-items:center;gap:0.35rem;border:2px solid #7c3aed !important;box-shadow:0 0 1.25rem rgba(196,181,253,0.9),0 0.55rem 1.5rem rgba(76,29,149,0.45) !important;position:relative;z-index:2147483643;}",
+    ".sml-compliance-btn.btn-dark,.sml-compliance-fix-btn.btn-dark{color:#ffffff !important;background:#1f2937 !important;border-color:#111827 !important;}",
+    ".sml-compliance-btn.btn-secondary,.sml-compliance-fix-btn.btn-secondary{color:#ffffff !important;background:#64748b !important;border-color:#475569 !important;}",
+    ".sml-compliance-btn.btn-danger,.sml-compliance-fix-btn.btn-danger{color:#ffffff !important;background:#dc3545 !important;border-color:#b02a37 !important;}",
+    ".sml-compliance-btn.btn-warning,.sml-compliance-alert-toggle.btn-warning,.sml-compliance-fix-btn.btn-warning{color:#0f172a !important;background:#facc15 !important;border-color:#eab308 !important;}",
+    ".sml-compliance-btn.btn-info,.sml-compliance-alert-toggle.btn-info,.sml-compliance-fix-btn.btn-info{color:#082f49 !important;background:#bae6fd !important;border-color:#38bdf8 !important;}",
     ".sml-compliance-heading-highlight{outline:3px solid goldenrod !important;outline-offset:2px !important;border-radius:0.25rem !important;}",
     ".sml-compliance-fix-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:1rem;}",
     ".sml-compliance-fix-modal{position:relative;z-index:1;background:#ffffff;color:#0f172a;max-width:980px;width:min(980px,96vw);max-height:90vh;overflow:auto;border:2px solid #0f172a;border-radius:0.75rem;box-shadow:0 18px 40px rgba(0,0,0,0.35);}",
@@ -3136,6 +3150,15 @@ function shouldForceBodyMountForInlineAlert(element, mountTarget) {
     while (current instanceof Element) {
       const styles = window.getComputedStyle(current);
       const zIndex = Number.parseInt(styles.zIndex || "0", 10);
+      if (current.matches("td, th, li, button, [role='button'], a, .list-group-item, .list-group")) {
+        return true;
+      }
+      if (styles.display === "inline" || styles.display === "inline-flex" || styles.display === "inline-grid") {
+        return true;
+      }
+      if (styles.overflowX === "hidden" || styles.overflowX === "clip") {
+        return true;
+      }
       if (styles.pointerEvents === "none" || (!Number.isNaN(zIndex) && zIndex < 0)) {
         return true;
       }
@@ -3146,8 +3169,105 @@ function shouldForceBodyMountForInlineAlert(element, mountTarget) {
   return false;
 }
 
+function positionFloatingInlineAlertPanes(toggleButton, panesContainer) {
+  if (!(toggleButton instanceof HTMLElement) || !(panesContainer instanceof HTMLElement)) return;
+
+  const toggleRect = toggleButton.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const margin = 12;
+  const sideGap = 10;
+  const preferredWidth = 512;
+  const minimumWidth = 50;
+  const availableRight = Math.max(0, viewportWidth - toggleRect.right - margin - sideGap);
+  const availableLeft = Math.max(0, toggleRect.left - margin - sideGap);
+  const useRightSide = availableRight >= availableLeft;
+  const sideWidth = useRightSide ? availableRight : availableLeft;
+  const desiredWidth = Math.min(preferredWidth, Math.max(minimumWidth, sideWidth || (viewportWidth - (margin * 2))));
+
+  panesContainer.style.width = `${desiredWidth}px`;
+  panesContainer.style.minWidth = `${minimumWidth}px`;
+  panesContainer.style.maxWidth = `calc(100vw - ${margin * 2}px)`;
+
+  const containerRect = panesContainer.getBoundingClientRect();
+  const width = containerRect.width || desiredWidth;
+  const height = containerRect.height || 0;
+  const rightSideLeft = toggleRect.right + sideGap;
+  const leftSideLeft = toggleRect.left - sideGap - width;
+  const left = useRightSide
+    ? Math.min(rightSideLeft, Math.max(margin, viewportWidth - width - margin))
+    : Math.max(margin, leftSideLeft);
+  const preferredTop = toggleRect.top + ((toggleRect.height - Math.min(toggleRect.height, height || toggleRect.height)) / 2);
+  const top = Math.min(
+    Math.max(margin, preferredTop),
+    Math.max(margin, viewportHeight - height - margin)
+  );
+
+  panesContainer.style.left = `${Math.round(left)}px`;
+  panesContainer.style.top = `${Math.round(top)}px`;
+}
+
+function ensureFloatingInlineAlertRepositioning(toggleButton, panesContainer) {
+  if (!(toggleButton instanceof HTMLElement) || !(panesContainer instanceof HTMLElement)) return;
+  if (INLINE_ALERT_REPOSITIONERS.has(panesContainer)) return;
+
+  const reposition = () => {
+    if (panesContainer.hidden) return;
+    positionFloatingInlineAlertPanes(toggleButton, panesContainer);
+  };
+
+  window.addEventListener("resize", reposition);
+  window.addEventListener("scroll", reposition, true);
+  INLINE_ALERT_REPOSITIONERS.set(panesContainer, reposition);
+}
+
+function setInlineAlertExpanded(toggleButton, panesContainer, expanded) {
+  if (!(toggleButton instanceof HTMLButtonElement) || !(panesContainer instanceof HTMLElement)) return;
+
+  panesContainer.hidden = !expanded;
+  toggleButton.setAttribute("aria-expanded", String(expanded));
+
+  if (expanded && panesContainer.classList.contains("sml-compliance-alert-panes-floating")) {
+    positionFloatingInlineAlertPanes(toggleButton, panesContainer);
+  }
+}
+
+function closeAllFloatingInlineAlertPanes(exceptContainer = null) {
+  document.querySelectorAll(".sml-compliance-alert-panes-floating").forEach((pane) => {
+    if (!(pane instanceof HTMLElement) || pane === exceptContainer) return;
+    const toggleButton = INLINE_ALERT_TOGGLES.get(pane);
+    if (toggleButton instanceof HTMLButtonElement) {
+      setInlineAlertExpanded(toggleButton, pane, false);
+    } else {
+      pane.hidden = true;
+    }
+  });
+}
+
+function ensureInlineAlertDismissHandlers() {
+  if (INLINE_ALERT_DISMISS_HANDLERS_BOUND) return;
+
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest(".sml-compliance-alert-toggle") || target.closest(".sml-compliance-alert-panes-floating")) {
+      return;
+    }
+    closeAllFloatingInlineAlertPanes();
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAllFloatingInlineAlertPanes();
+    }
+  });
+
+  INLINE_ALERT_DISMISS_HANDLERS_BOUND = true;
+}
+
 function createComplianceAlert(level, title, message, element) {
   ensureInlineAlertStyles();
+  ensureInlineAlertDismissHandlers();
 
   const alertId = createAlertId();
   const alertClass = ALERT_CLASSES[level] || ALERT_CLASSES.info;
@@ -3160,6 +3280,8 @@ function createComplianceAlert(level, title, message, element) {
     || element === document.documentElement
     || element === document.body
     || shouldForceBodyMountForInlineAlert(element, mountTarget);
+  const shouldUseFloatingPane = isElementNode && shouldUseBodyMount;
+  const localHostKey = mountTarget || element;
   const nestedHost = getInlineAlertHostForElement(element);
   let wrapper;
   let toggleButton;
@@ -3172,7 +3294,10 @@ function createComplianceAlert(level, title, message, element) {
     const controlledIds = (toggleButton.getAttribute("aria-controls") || "").trim();
     toggleButton.setAttribute("aria-controls", controlledIds ? controlledIds + " " + paneId : paneId);
   } else {
-    const hostKey = shouldUseBodyMount ? body : (mountTarget || element);
+    let hostKey = localHostKey;
+    if (!shouldUseFloatingPane && shouldUseBodyMount) {
+      hostKey = body;
+    }
     if (hostKey) {
       const existingHost = INLINE_ALERT_HOSTS.get(hostKey);
       if (existingHost?.wrapper?.isConnected) {
@@ -3201,7 +3326,11 @@ function createComplianceAlert(level, title, message, element) {
 
     panesContainer = document.createElement("div");
     panesContainer.className = "sml-compliance-alert-panes";
+    if (shouldUseFloatingPane) {
+      panesContainer.classList.add("sml-compliance-alert-panes-floating");
+    }
     panesContainer.hidden = true;
+    INLINE_ALERT_TOGGLES.set(panesContainer, toggleButton);
 
     const guardComplianceInteraction = (event) => {
       stopComplianceControlEvent(event);
@@ -3214,20 +3343,42 @@ function createComplianceAlert(level, title, message, element) {
     toggleButton.addEventListener("click", (event) => {
       stopComplianceControlEvent(event);
       const willOpen = panesContainer.hidden;
-      panesContainer.hidden = !willOpen;
-      toggleButton.setAttribute("aria-expanded", String(willOpen));
+      if (willOpen) {
+        closeAllFloatingInlineAlertPanes(panesContainer);
+      }
+      setInlineAlertExpanded(toggleButton, panesContainer, willOpen);
     });
 
     wrapper.appendChild(toggleButton);
-    wrapper.appendChild(panesContainer);
     markSmlcElementTree(wrapper);
+    markSmlcElementTree(panesContainer);
 
     INLINE_ALERT_WRAPPERS.set(wrapper, { wrapper, toggleButton, panesContainer });
 
-    if (body && shouldUseBodyMount) {
+    if (body && shouldUseFloatingPane) {
+      body.appendChild(panesContainer);
+      ensureFloatingInlineAlertRepositioning(toggleButton, panesContainer);
+      if (mountTarget instanceof Element) {
+        if (mountTarget.matches(".modal-header")) {
+          wrapper.classList.add("sml-compliance-alert-modal-header");
+          mountTarget.appendChild(wrapper);
+        } else {
+          mountTarget.after(wrapper);
+        }
+        INLINE_ALERT_HOSTS.set(mountTarget, { wrapper, toggleButton, panesContainer });
+      } else if (isElementNode) {
+        element.after(wrapper);
+        INLINE_ALERT_HOSTS.set(element, { wrapper, toggleButton, panesContainer });
+        } else {
+          body.prepend(wrapper);
+          INLINE_ALERT_HOSTS.set(body, { wrapper, toggleButton, panesContainer });
+      }
+    } else if (body && shouldUseBodyMount) {
+      wrapper.appendChild(panesContainer);
       body.prepend(wrapper);
       INLINE_ALERT_HOSTS.set(body, { wrapper, toggleButton, panesContainer });
     } else if (mountTarget instanceof Element) {
+      wrapper.appendChild(panesContainer);
       if (mountTarget.matches(".modal-header")) {
         wrapper.classList.add("sml-compliance-alert-modal-header");
         mountTarget.appendChild(wrapper);
@@ -3236,6 +3387,7 @@ function createComplianceAlert(level, title, message, element) {
       }
       INLINE_ALERT_HOSTS.set(mountTarget, { wrapper, toggleButton, panesContainer });
     } else if (isElementNode) {
+      wrapper.appendChild(panesContainer);
       element.after(wrapper);
       INLINE_ALERT_HOSTS.set(element, { wrapper, toggleButton, panesContainer });
     }
@@ -3246,6 +3398,23 @@ function createComplianceAlert(level, title, message, element) {
   alertDiv.className = `sml-compliance-alert-pane ${alertClass} my-0 mx-0 p-3 rounded`;
   alertDiv.setAttribute("role", "alert");
   alertDiv.setAttribute("aria-live", "polite");
+
+  const closePaneButton = document.createElement("button");
+  closePaneButton.type = "button";
+  closePaneButton.className = "sml-compliance-pane-close";
+  closePaneButton.setAttribute("aria-label", "Close issue details");
+  closePaneButton.setAttribute("title", "Close issue details");
+  closePaneButton.textContent = "×";
+  ["pointerdown", "mousedown", "mouseup", "keydown", "keyup"].forEach((eventName) => {
+    closePaneButton.addEventListener(eventName, (event) => {
+      stopComplianceControlEvent(event);
+    });
+  });
+  closePaneButton.addEventListener("click", (event) => {
+    stopComplianceControlEvent(event);
+    setInlineAlertExpanded(toggleButton, panesContainer, false);
+  });
+  alertDiv.appendChild(closePaneButton);
   
   const titleEl = document.createElement("strong");
   titleEl.textContent = `[${level.toUpperCase()}] ${title}`;
