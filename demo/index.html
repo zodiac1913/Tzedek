@@ -166,6 +166,21 @@
         color: #7991a6;
       }
 
+      .utility-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 1rem 0;
+        padding: 0.9rem 1rem;
+        border-radius: 0.9rem;
+        background: rgba(255, 255, 255, 0.74);
+        border: 1px solid var(--demo-border);
+      }
+
+      .utility-nav a {
+        color: var(--demo-ink);
+      }
+
       @media (max-width: 640px) {
         .demo-shell {
           width: min(100% - 1rem, 1080px);
@@ -199,7 +214,13 @@
         </div>
       </section>
 
-      <div class="grid" id="demo-issues">
+      <div class="utility-nav">
+        <a href="#demo-issues">Findings</a>
+        <a href="#fixture-structure">Structure</a>
+        <a href="#fixture-forms-media">Media</a>
+      </div>
+
+      <div class="grid page-content" id="demo-issues">
         <section class="card">
           <h2>Links and Buttons</h2>
           <p>These fixtures are injected at runtime so the demo file stays lint-clean while Tzedek still has real problems to find.</p>
@@ -225,20 +246,39 @@
         const fixtures = {
           "fixture-links-buttons": [
             "<p><a href='#'>Click here</a> to read a vague link example.</p>",
+            "<p><a href='/policies/telework'>Read more</a> about telework. <a href='/benefits/telework-request'>Read more</a> if you need the request form.</p>",
+            "<p><a href='/demo'>Open the demo directory</a> to exercise same-origin redirect review.</p>",
             "<p><span class='fake-button' onclick=\"alert('Not semantic')\">Open settings</span></p>",
             "<p><button type='button' class='issue-button'>Low contrast button</button></p>",
+            "<p><input type='submit' value='Send request' aria-label='Submit form now'></p>",
+            "<details><summary aria-label='Expand policy guidance'>Open billing panel</summary><p>Summary text mismatch example.</p></details>",
+            "<div role='tab' aria-label='Account security tab' tabindex='0'>Profile</div>",
             "<p><a class='muted-link' href='/missing-page'>Review details</a></p>"
           ].join(""),
           "fixture-forms-media": [
             "<p><img src='./page/assets/smoke.png' width='160' height='100'></p>",
             "<p><input type='text' placeholder='Search policies'></p>",
-            "<p><input type='checkbox' id='agree-demo'><span>I agree to the terms</span></p>"
+            "<p><input type='checkbox' id='agree-demo'><span>I agree to the terms</span></p>",
+            "<form aria-label='Demo validation form'><label for='email-demo'>Work email</label><input id='email-demo' type='email' required aria-invalid='true'><div id='email-demo-error' role='alert'>Enter a valid work email address.</div></form>",
+            "<iframe srcdoc='<form><label>Name <input></label></form>' title='content'></iframe>",
+            "<embed src='data:text/html,%3Cp%3EEmbedded%20policy%20preview%3C/p%3E' type='text/html'>"
           ].join(""),
           "fixture-structure": [
             "<table>",
             "<tr><td>Region</td><td>Open findings</td></tr>",
             "<tr><td>North</td><td>12</td></tr>",
             "<tr><td>South</td><td>7</td></tr>",
+            "</table>",
+            "<table>",
+            "<caption>Regional staffing totals</caption>",
+            "<thead>",
+            "<tr><th rowspan='2'>Region</th><th colspan='2'>Open findings</th></tr>",
+            "<tr><th>Critical</th><th>Warning</th></tr>",
+            "</thead>",
+            "<tbody>",
+            "<tr><th scope='row'>North</th><td>5</td><td>7</td></tr>",
+            "<tr><th scope='row'>South</th><td>2</td><td>4</td></tr>",
+            "</tbody>",
             "</table>"
           ].join("")
         };

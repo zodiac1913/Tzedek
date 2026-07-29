@@ -1,7 +1,8 @@
 const RUNNER_PATH = "page/smlComplianceRunner.js";
 const THEME_PATH = "page/assets/Tzedek.css";
+const extensionApi = globalThis.browser || globalThis.chrome;
 
-chrome.action.onClicked.addListener(async (tab) => {
+extensionApi.action.onClicked.addListener(async (tab) => {
   if (!tab.id) {
     return;
   }
@@ -11,10 +12,10 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  await chrome.scripting.executeScript({
+  await extensionApi.scripting.executeScript({
     target: { tabId: tab.id },
     func: injectTzedekRunner,
-    args: [chrome.runtime.getURL(RUNNER_PATH), chrome.runtime.getURL(THEME_PATH)]
+    args: [extensionApi.runtime.getURL(RUNNER_PATH), extensionApi.runtime.getURL(THEME_PATH)]
   });
 });
 
@@ -30,9 +31,12 @@ function injectTzedekRunner(runnerUrl, themeUrl) {
   }
 
   const assetBaseUrl = runnerUrl.replace(/smlComplianceRunner\.js(?:\?.*)?$/, "assets/");
+  const currentConfig = globalThis.TzedekConfig && typeof globalThis.TzedekConfig === "object"
+    ? globalThis.TzedekConfig
+    : undefined;
 
   globalThis.TzedekConfig = {
-    ...(globalThis.TzedekConfig || {}),
+    ...currentConfig,
     moduleUrl: runnerUrl.replace(/smlComplianceRunner\.js(?:\?.*)?$/, "smlCompliance.js"),
     bootstrapIconsHref: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
     assetBaseUrl

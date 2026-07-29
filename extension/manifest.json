@@ -17,7 +17,16 @@
     "default_title": "Run Tzedek"
   },
   "background": {
+    "scripts": [
+      "service-worker.js"
+    ],
     "service_worker": "service-worker.js"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tzedek@small-mighty-light.dev",
+      "strict_min_version": "121.0"
+    }
   },
   "permissions": [
     "activeTab",
@@ -29,7 +38,9 @@
         "page/smlCompliance.js",
         "page/smlComplianceRunner.js",
         "page/assets/Tzedek.css",
-        "page/assets/smoke.png"
+        "page/assets/smoke.png",
+        "page/assets/issue-guide.html",
+        "page/assets/tzedekIssueGuideData.js"
       ],
       "matches": [
         "<all_urls>"

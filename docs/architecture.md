@@ -62,3 +62,32 @@ Do not remove all legacy theme-derived styling. Tzedek's contrast guidance uses 
 ## Public Distribution Direction
 
 Tzedek should be able to publish bookmarklet assets from a public GitHub repository, ideally through GitHub Pages, while packaging the same runtime into a Chromium extension for Edge and Chrome.
+
+## Issue Guide Direction
+
+Long-form finding help should live on a real page, not in another popup layered on top of the audited page.
+
+Current implementation direction:
+
+1. keep the inline finding pane short and issue-list driven
+2. use `More Info` for canonical external references when a strong source exists
+3. use `Tzedek Guide` for Tzedek-authored explanation, review checklist, and fix-oriented context on a dedicated page
+4. reuse runtime logic where possible instead of duplicating finding summaries and fix guidance in separate assets
+
+Current content coverage is strongest in these guide categories:
+
+- document structure and core page basics
+- common link and navigation findings
+- forms and validation findings
+- table findings
+
+Next working direction:
+
+1. expand `src/runtime/assets/tzedekIssueGuideData.js` by category rather than one-off titles
+2. prioritize custom controls and ARIA semantics next, because that cluster has many user-visible findings and benefits from plain-language explanation
+3. after that, cover media and embedded content, then any remaining structure or interaction edge cases
+
+Working rule:
+
+- do not reopen the WCAG checklist unless a new detector or capability is being added
+- treat remaining work here as guide-content and explanation-quality expansion, not unfinished core checker implementation

@@ -59,6 +59,7 @@ const DEFAULT_BOOTSTRAP_ICONS_HREF = "https://cdn.jsdelivr.net/npm/bootstrap-ico
 const DEFAULT_SMOKE_IMAGE_URL = new URL("./assets/smoke.png", import.meta.url).href;
 const BROKEN_LINK_STATUS_CACHE = new Map();
 const MDN_ARIA_REFERENCE_BASE = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/";
+const MDN_ARIA_ROLE_REFERENCE_BASE = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/";
 const MDN_SEARCH_BASE = "https://developer.mozilla.org/en-US/search?q=";
 const MORE_INFO_URL_BY_TITLE = {
   "Duplicate ID": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/id",
@@ -91,13 +92,17 @@ const MORE_INFO_URL_BY_TITLE = {
   "Accessible Name Does Not Include Visible Label": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
   "Vague Link Text": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
   "Ambiguous Link Text": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
+  "Duplicate Link Text, Different Destination": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
   "Broken Fragment Link": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
   "Broken Same-Origin Link": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
+  "Same-Origin Link Redirects": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections",
+  "Same-Origin Link Requires Authentication": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
   "Link Opens in New Window": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
   "Button Missing Text": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button",
   "Button Role Missing Keyboard Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Button Role Not Focusable": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Anchor Uses Button Role": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
+  "Disabled State Not Announced": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-disabled",
   "Icon-Only Button Missing Label": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
   "Form Should Be Labeled": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
   "Grouped Choices Missing Fieldset": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset",
@@ -108,6 +113,8 @@ const MORE_INFO_URL_BY_TITLE = {
   "Non-Standard Click Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Audio Missing Transcript": "https://www.w3.org/WAI/WCAG22/Understanding/audio-only-and-video-only-prerecorded.html",
   "Iframe Missing Title": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe",
+  "Iframe Title Too Generic": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe",
+  "Embedded Content Missing Label": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/object",
   "Video Missing Captions": "https://www.w3.org/WAI/WCAG22/Understanding/captions-prerecorded.html",
   "Video Missing Descriptions": "https://www.w3.org/WAI/WCAG22/Understanding/audio-description-or-media-alternative-prerecorded.html",
   "Table Missing Caption": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/caption",
@@ -115,6 +122,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Table Missing tbody": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/tbody",
   "Table Header Missing Scope": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/th",
   "Table Missing Header Cells": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/th",
+  "Complex Table Missing Header Associations": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/td#headers",
   "Possible Layout Table": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/table",
   "Empty List": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/ul",
   "Invalid List Content": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/li",
@@ -123,6 +131,8 @@ const MORE_INFO_URL_BY_TITLE = {
   "Missing Error Message Element": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-describedby",
   "Missing Navigation Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/navigation_role",
   "Missing Main Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/main_role",
+  "Custom Navigation Container Missing Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/navigation_role",
+  "Custom Main Content Container Missing Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/main_role",
   "Non-Semantic Button": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button",
   "Non-Semantic Link": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a"
 };
@@ -173,8 +183,11 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Accessible Name Does Not Include Visible Label": "accessible name visible label accessibility",
   "Vague Link Text": "HTML link accessibility descriptive link text",
   "Ambiguous Link Text": "HTML link accessibility descriptive link text",
+  "Duplicate Link Text, Different Destination": "duplicate link text different destination accessibility",
   "Broken Fragment Link": "HTML fragment link target accessibility",
   "Broken Same-Origin Link": "same origin broken link accessibility",
+  "Same-Origin Link Redirects": "same origin link redirect accessibility",
+  "Same-Origin Link Requires Authentication": "same origin link authentication accessibility",
   "Link Opens in New Window": "link opens in new window accessibility",
   "Button Missing Text": "HTML button accessibility",
   "Button Role Missing Keyboard Handler": "custom button keyboard accessibility",
@@ -196,6 +209,8 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Non-Standard Click Handler": "button role keyboard accessibility",
   "Audio Missing Transcript": "audio transcript accessibility",
   "Iframe Missing Title": "HTML iframe title accessibility",
+  "Iframe Title Too Generic": "HTML iframe descriptive title accessibility",
+  "Embedded Content Missing Label": "embedded content accessible label accessibility",
   "Video Missing Captions": "video captions accessibility",
   "Video Missing Descriptions": "audio descriptions accessibility",
   "Table Missing Caption": "HTML table caption accessibility",
@@ -203,6 +218,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Table Missing tbody": "HTML table tbody accessibility",
   "Table Header Missing Scope": "HTML th scope accessibility",
   "Table Missing Header Cells": "HTML data table header cells accessibility",
+  "Complex Table Missing Header Associations": "complex table header association accessibility",
   "Possible Layout Table": "layout table accessibility",
   "Empty List": "HTML list accessibility",
   "Invalid List Content": "HTML ul ol li accessibility",
@@ -213,6 +229,8 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Live Region Should Have aria-atomic": "aria-atomic accessibility",
   "Missing Navigation Landmark": "navigation landmark accessibility",
   "Missing Main Landmark": "main landmark accessibility",
+  "Custom Navigation Container Missing Landmark": "custom navigation container landmark accessibility",
+  "Custom Main Content Container Missing Landmark": "custom main content landmark accessibility",
   "Non-Semantic Button": "HTML button accessibility",
   "Non-Semantic Link": "HTML link accessibility"
 };
@@ -1346,6 +1364,15 @@ function getReferencedTextContent(idrefs) {
 
 }
 
+function getReferencedElements(idrefs) {
+  return String(idrefs || "")
+    .split(/\s+/)
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .map((id) => document.getElementById(id))
+    .filter((element) => element instanceof Element);
+}
+
 function getAssociatedLabelText(element) {
   if (!(element instanceof Element)) return "";
 
@@ -1565,6 +1592,123 @@ function buildHeadingFixSuggestions(title) {
   ];
 }
 
+function buildDocumentMetadataFixSuggestions(title) {
+  const normalizedTitle = String(title || "").trim();
+  const pageTitle = escapeHtml(getReadablePageTitle() || "Descriptive page title");
+  const documentLang = escapeAttribute((document.documentElement.getAttribute("lang") || "en").trim() || "en");
+
+  if (["Missing Page Title", "Vague Page Title"].includes(normalizedTitle)) {
+    return [
+      {
+        heading: "Use a descriptive page title",
+        code: `<head>\n  <title>${pageTitle}</title>\n</head>`
+      },
+      {
+        heading: "Keep the unique page topic in the title",
+        code: `<title>${pageTitle} | Small-Mighty-Light</title>`
+      }
+    ];
+  }
+
+  if (normalizedTitle === "Missing Viewport Meta Tag") {
+    return [
+      {
+        heading: "Add the standard responsive viewport meta tag",
+        code: `<head>\n  <meta name="viewport" content="width=device-width, initial-scale=1" />\n</head>`
+      }
+    ];
+  }
+
+  if (normalizedTitle === "Redundant Lang Attribute") {
+    return [
+      {
+        heading: "Keep the language on the html element and remove the duplicate",
+        code: `<html lang="${documentLang}">\n  <body>\n    ...\n  </body>\n</html>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Declare the page language on the html element",
+      code: `<html lang="${documentLang}">\n  ...\n</html>`
+    }
+  ];
+}
+
+function getHeadingLevelFromElement(element) {
+  if (!(element instanceof Element)) return 2;
+
+  const nativeMatch = /^H([1-6])$/.exec(element.tagName);
+  if (nativeMatch) {
+    return Number.parseInt(nativeMatch[1], 10);
+  }
+
+  const ariaLevel = Number.parseInt(String(element.getAttribute("aria-level") || "2"), 10);
+  return Number.isNaN(ariaLevel) || ariaLevel < 1 ? 2 : ariaLevel;
+}
+
+function buildHeadingStructureFixSuggestions(title, element) {
+  const normalizedTitle = String(title || "").trim();
+  const headingText = escapeHtml(String(element?.textContent || "Section heading").trim() || "Section heading");
+  const currentLevel = getHeadingLevelFromElement(element);
+  const correctedLevel = Math.min(Math.max(currentLevel - 1, 1), 6);
+
+  if (normalizedTitle === "Heading Level Skip") {
+    return [
+      {
+        heading: "Move to the next heading level instead of skipping",
+        code: `<h${correctedLevel}>${headingText}</h${correctedLevel}>`
+      },
+      {
+        heading: "If you must use a custom heading, give it the corrected aria-level",
+        code: `<div role="heading" aria-level="${correctedLevel}">${headingText}</div>`
+      }
+    ];
+  }
+
+  if (normalizedTitle === "Empty Heading") {
+    return [
+      {
+        heading: "Put real heading text inside the existing heading",
+        code: `<h${currentLevel}>${headingText}</h${currentLevel}>`
+      },
+      {
+        heading: "If the heading is decorative only, remove heading semantics",
+        code: `<div>${headingText}</div>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Prefer a native heading element",
+      code: `<h${Math.min(Math.max(currentLevel, 1), 6)}>${headingText}</h${Math.min(Math.max(currentLevel, 1), 6)}>`
+    },
+    {
+      heading: "If you keep a custom heading, pair the role with aria-level",
+      code: `<div role="heading" aria-level="${Math.min(Math.max(currentLevel, 1), 6)}">${headingText}</div>`
+    }
+  ];
+}
+
+function buildHeadingCountFixSuggestions() {
+  const levelOneHeadings = getLevelOneHeadingElements();
+  const primaryHeading = escapeHtml(String(levelOneHeadings[0]?.textContent || getReadablePageTitle() || "Page title").trim() || "Page title");
+  const secondaryHeading = escapeHtml(String(levelOneHeadings[1]?.textContent || "Section heading").trim() || "Section heading");
+
+  return [
+    {
+      heading: "Keep one page h1 and demote the others",
+      code: `<h1>${primaryHeading}</h1>\n<section>\n  <h2>${secondaryHeading}</h2>\n</section>`
+    },
+    {
+      heading: "If the extra heading is only a style hook, remove the heading semantics",
+      code: `<h1>${primaryHeading}</h1>\n<div class="section-title">${secondaryHeading}</div>`
+    }
+  ];
+}
+
 function buildMainLandmarkFixSuggestions() {
   return [
     {
@@ -1610,6 +1754,84 @@ function buildNavigationLandmarkFixSuggestions() {
   ];
 }
 
+function getElementLandmarkHintText(element) {
+  if (!(element instanceof Element)) return "";
+
+  return [
+    element.getAttribute("id"),
+    element.getAttribute("class"),
+    element.getAttribute("aria-label"),
+    element.dataset.testid
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function getCustomNavigationLandmarkCandidate() {
+  const candidates = Array.from(document.querySelectorAll("div, section, header, aside"));
+  return candidates.find((element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (isSmlcOwnedElement(element) || isHiddenFromAllUsers(element)) return false;
+    if (element.closest("nav, [role='navigation']")) return false;
+
+    const hintText = getElementLandmarkHintText(element);
+    if (!/\b(nav|navigation|menu|breadcrumb|breadcrumbs|pagination|pager)\b/.test(hintText)) return false;
+
+    const linkCount = element.querySelectorAll("a[href]").length;
+    return linkCount >= 2;
+  }) || null;
+}
+
+function getCustomMainLandmarkCandidate() {
+  const candidates = Array.from(document.querySelectorAll("div, section, article"));
+  return candidates.find((element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (isSmlcOwnedElement(element) || isHiddenFromAllUsers(element)) return false;
+    if (element.closest("main, [role='main']")) return false;
+
+    const hintText = getElementLandmarkHintText(element);
+    if (!/\b(main|content|primary|page-content|pagecontent|app-content|appcontent)\b/.test(hintText)) return false;
+
+    const hasHeading = Boolean(element.querySelector("h1, h2, h3, [role='heading']"));
+    const contentBlockCount = element.querySelectorAll("p, section, article, table, form, ul, ol").length;
+    return hasHeading && contentBlockCount >= 2;
+  }) || null;
+}
+
+function buildEmbeddedContentFixSuggestions(title, element) {
+  const source = escapeAttribute(String(
+    element?.getAttribute?.("src")
+    || element?.getAttribute?.("data")
+    || "/embedded-content"
+  ).trim() || "/embedded-content");
+  const tagName = String(element?.tagName || "IFRAME").toLowerCase();
+
+  if (title === "Embedded Content Missing Label") {
+    return [
+      {
+        heading: "Add a descriptive title to the embedded content",
+        code: `<${tagName} src="${source}" title="Benefits enrollment document"></${tagName}>`
+      },
+      {
+        heading: "If the content is interactive, name the task or destination",
+        code: `<${tagName} src="${source}" title="Benefits enrollment form"></${tagName}>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Replace the generic title with a specific one",
+      code: `<iframe src="${source}" title="Quarterly staffing dashboard"></iframe>`
+    },
+    {
+      heading: "If the frame is interactive, describe what users can do there",
+      code: `<iframe src="${source}" title="Training registration form"></iframe>`
+    }
+  ];
+}
+
 function buildImageAltFixSuggestions(title, element) {
   const imageName = String(element?.getAttribute?.("src") || "").split("/").pop() || "meaningful image";
   const readableName = imageName.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").trim() || "meaningful image";
@@ -1635,6 +1857,36 @@ function buildImageAltFixSuggestions(title, element) {
     {
       heading: "Decorative image example",
       code: `<img src="${escapeAttribute(imageName)}" alt="" role="presentation" />`
+    }
+  ];
+}
+
+function buildImageMeaningFixSuggestions(title, element) {
+  const source = escapeAttribute(String(element?.getAttribute?.("src") || "meaningful-image.png").trim() || "meaningful-image.png");
+  const currentAlt = String(element?.getAttribute?.("alt") || "").trim();
+  const cleanedAlt = escapeAttribute(currentAlt.replace(/\b(image|photo|picture|graphic|icon)\b/gi, "").replace(/\s+/g, " ").trim() || "Meaningful image description");
+
+  if (title === "Presentation Role Conflicts with Alt Text") {
+    return [
+      {
+        heading: "If the image is decorative, keep it hidden from assistive technology",
+        code: `<img src="${source}" alt="" role="presentation" />`
+      },
+      {
+        heading: "If the image conveys meaning, remove the presentation role and keep the alt text",
+        code: `<img src="${source}" alt="${cleanedAlt}" />`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Remove redundant words from the alt text",
+      code: `<img src="${source}" alt="${cleanedAlt}" />`
+    },
+    {
+      heading: "If the image adds no meaning, mark it decorative instead",
+      code: `<img src="${source}" alt="" role="presentation" />`
     }
   ];
 }
@@ -1680,6 +1932,19 @@ function buildLinkTextFixSuggestions(title, element) {
       {
         heading: "If short text must stay, add context to the accessible name",
         code: `<a href="${href}" aria-label="View employee leave balance">View details</a>`
+      }
+    ];
+  }
+
+  if (title === "Duplicate Link Text, Different Destination") {
+    return [
+      {
+        heading: "Make each repeated link name say where it goes",
+        code: `<a href="${href}">Read the telework policy</a>\n<a href="/benefits/telework-request">Start a telework request</a>`
+      },
+      {
+        heading: "If the short visible text must stay, add unique accessible names",
+        code: `<a href="${href}" aria-label="Read the telework policy">Read more</a>\n<a href="/benefits/telework-request" aria-label="Start a telework request">Read more</a>`
       }
     ];
   }
@@ -1733,6 +1998,152 @@ function buildInputStateFixSuggestions(title, element) {
     {
       heading: "Wrap the search field in a labeled search landmark",
       code: `<form role="search" aria-label="Employee search">\n  <label for="${fieldId}">Search employees</label>\n  <input id="${fieldId}" type="search" />\n</form>`
+    }
+  ];
+}
+
+function buildContextualLinkFixSuggestions(title, element) {
+  const href = escapeAttribute(String(element?.getAttribute?.("href") || "/target").trim() || "/target");
+  const linkText = escapeHtml(String(element?.textContent || "Open destination").trim() || "Open destination");
+
+  return [
+    {
+      heading: "Warn users in the visible link text",
+      code: `<a href="${href}" target="_blank" rel="noopener noreferrer">${linkText} (opens in new window)</a>`
+    },
+    {
+      heading: "Keep short visible text but add the warning to the accessible name",
+      code: `<a href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${linkText} (opens in new window)">${linkText}</a>`
+    }
+  ];
+}
+
+function buildContrastFixSuggestions(element) {
+  const sampleText = escapeHtml(getVisibleControlText(element) || String(element?.textContent || "Readable text").trim() || "Readable text");
+  const tagName = String(element?.tagName || "SPAN").toLowerCase();
+
+  return [
+    {
+      heading: "Increase the foreground and background contrast",
+      code: `<${tagName} class="accessible-contrast-sample">${sampleText}</${tagName}>\n<style>\n  .accessible-contrast-sample {\n    color: #1f1f1f;\n    background: #ffffff;\n  }\n</style>`
+    },
+    {
+      heading: "If this is a button-like control, use a stronger visual treatment",
+      code: `<button type="button" class="btn btn-primary">${sampleText}</button>`
+    }
+  ];
+}
+
+function buildFocusIndicatorFixSuggestions(element) {
+  const selector = element?.id
+    ? `#${escapeAttribute(element.id)}`
+    : ".focusable-control";
+  const sampleText = escapeHtml(getVisibleControlText(element) || String(element?.textContent || "Open details").trim() || "Open details");
+  const buttonAttributes = element?.id
+    ? ` id="${escapeAttribute(element.id)}"`
+    : " class=\"focusable-control\"";
+
+  return [
+    {
+      heading: "Add a visible focus ring with focus-visible",
+      code: `<button${buttonAttributes}>${sampleText}</button>\n<style>\n  ${selector}:focus-visible {\n    outline: 3px solid #0b5fff;\n    outline-offset: 2px;\n  }\n</style>`
+    }
+  ];
+}
+
+function buildMediaAlternativeFixSuggestions(title, element) {
+  const normalizedTitle = String(title || "").trim();
+  const source = escapeAttribute(String(element?.getAttribute?.("src") || "media.mp4").trim() || "media.mp4");
+
+  if (normalizedTitle === "Audio Missing Transcript") {
+    return [
+      {
+        heading: "Pair the audio with a transcript",
+        code: `<audio controls src="${source}"></audio>\n<details>\n  <summary>Transcript</summary>\n  <p>Speaker: ...</p>\n</details>`
+      }
+    ];
+  }
+
+  if (normalizedTitle === "Video Missing Captions") {
+    return [
+      {
+        heading: "Add a captions track to the current video",
+        code: `<video controls src="${source}">\n  <track kind="captions" srclang="en" src="captions-en.vtt" label="English captions" default />\n</video>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Add an audio description track or nearby described alternative",
+      code: `<video controls src="${source}">\n  <track kind="descriptions" srclang="en" src="descriptions-en.vtt" label="English audio descriptions" />\n</video>`
+    },
+    {
+      heading: "If a descriptions track is not available, provide a nearby text alternative",
+      code: `<div>Detailed video description: Describe the important visual information here.</div>`
+    }
+  ];
+}
+
+function buildListFixSuggestions(title, element) {
+  const normalizedTitle = String(title || "").trim();
+  const listTag = String(element?.tagName || "UL").toLowerCase() === "ol" ? "ol" : "ul";
+
+  if (normalizedTitle === "Empty List") {
+    return [
+      {
+        heading: "Add real list items or remove the empty list",
+        code: `<${listTag}>\n  <li>First item</li>\n  <li>Second item</li>\n</${listTag}>`
+      },
+      {
+        heading: "If this is only for layout, replace it with a non-list container",
+        code: `<div>First item</div>\n<div>Second item</div>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Wrap each direct list child in an li",
+      code: `<${listTag}>\n  <li>First item</li>\n  <li>Second item</li>\n</${listTag}>`
+    }
+  ];
+}
+
+function buildMotionFixSuggestions() {
+  return [
+    {
+      heading: "Respect prefers-reduced-motion in CSS",
+      code: `@media (prefers-reduced-motion: reduce) {\n  .animated-content {\n    animation: none !important;\n    transition: none !important;\n    scroll-behavior: auto;\n  }\n}`
+    },
+    {
+      heading: "Stop auto-playing motion when reduced motion is requested",
+      code: `const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;\nif (!reduceMotion) {\n  startAnimation();\n}`
+    }
+  ];
+}
+
+function buildLiveRegionFixSuggestions(title, element) {
+  const normalizedTitle = String(title || "").trim();
+  const role = escapeAttribute(String(element?.getAttribute?.("role") || "status").trim() || "status");
+
+  if (normalizedTitle === "Invalid aria-live Value") {
+    return [
+      {
+        heading: "Use a valid aria-live value",
+        code: `<div aria-live="polite">Status message updates</div>`
+      },
+      {
+        heading: "If the update is urgent, use assertive instead",
+        code: `<div role="${role}" aria-live="assertive">Urgent status update</div>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Mark the whole live region as atomic when multi-part updates should be announced together",
+      code: `<div role="${role}" aria-live="polite" aria-atomic="true">\n  <span>Status:</span>\n  <span>Saved successfully</span>\n</div>`
     }
   ];
 }
@@ -1837,6 +2248,32 @@ function buildBrokenLinkFixSuggestions(title, element) {
     ];
   }
 
+  if (title === "Same-Origin Link Redirects") {
+    return [
+      {
+        heading: "Link directly to the final destination when the redirect is intentional",
+        code: `<a href="${safeHref}">Open resource</a>`
+      },
+      {
+        heading: "If the redirect is temporary, verify users still reach the expected page",
+        code: `<a href="${safeHref}">Open current resource location</a>`
+      }
+    ];
+  }
+
+  if (title === "Same-Origin Link Requires Authentication") {
+    return [
+      {
+        heading: "Tell users they may need to sign in before following the link",
+        code: `<a href="${safeHref}">Open employee benefits portal (sign-in required)</a>`
+      },
+      {
+        heading: "If the destination should be public, fix the route or permissions",
+        code: `<a href="${safeHref}">Open employee benefits portal</a>`
+      }
+    ];
+  }
+
   return [
     {
       heading: "Update the href to a route or file that returns successfully",
@@ -1893,6 +2330,32 @@ function isPossibleLayoutTable(table) {
   if (summary.maxColumns < 2 || summary.rowCount > 2) return false;
 
   return Boolean(table.querySelector("form, input, select, textarea, button, nav, section, article, aside, .row, .col"));
+}
+
+function hasComplexTableStructure(table) {
+  if (!(table instanceof HTMLTableElement)) return false;
+
+  if (table.querySelector("th[colspan], th[rowspan], td[colspan], td[rowspan]")) {
+    const spanningCell = table.querySelector("th[colspan], th[rowspan], td[colspan], td[rowspan]");
+    const colspan = Number.parseInt(spanningCell?.getAttribute("colspan") || "1", 10);
+    const rowspan = Number.parseInt(spanningCell?.getAttribute("rowspan") || "1", 10);
+    if (colspan > 1 || rowspan > 1) {
+      return true;
+    }
+  }
+
+  const theadRows = table.querySelectorAll("thead tr").length;
+  return theadRows > 1;
+}
+
+function hasExplicitTableHeaderAssociations(table, headerCells) {
+  if (!(table instanceof HTMLTableElement)) return false;
+
+  if (table.querySelector("td[headers]")) return true;
+  return headerCells.some((header) => {
+    const scope = String(header.getAttribute("scope") || "").trim().toLowerCase();
+    return scope === "colgroup" || scope === "rowgroup";
+  });
 }
 
 function buildTableFixSuggestions(title, element) {
@@ -1974,6 +2437,34 @@ function buildTableFixSuggestions(title, element) {
         heading: "Add scope to each header cell",
         code: `<th scope="col">${escapeHtml(headerText)}</th>
 <th scope="row">Row label</th>`
+      }
+    ];
+  }
+
+  if (title === "Complex Table Missing Header Associations") {
+    return [
+      {
+        heading: "Use ids on complex headers and point each data cell to them",
+        code: `<table>
+  <caption>Regional staffing totals</caption>
+  <thead>
+    <tr>
+      <th id="region" rowspan="2" scope="col">Region</th>
+      <th id="openFindings" colspan="2" scope="colgroup">Open findings</th>
+    </tr>
+    <tr>
+      <th id="critical" scope="col">Critical</th>
+      <th id="warning" scope="col">Warning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th id="north" scope="row">North</th>
+      <td headers="north critical">5</td>
+      <td headers="north warning">7</td>
+    </tr>
+  </tbody>
+</table>`
       }
     ];
   }
@@ -2074,6 +2565,14 @@ function reportTableHeaderScopeIssues(compliance, headerCells) {
   }
 }
 
+function reportComplexTableAssociationIssues(compliance, table, summary, likelyDataTable) {
+  if (!likelyDataTable || !hasComplexTableStructure(table)) return;
+  if (hasExplicitTableHeaderAssociations(table, summary.headerCells)) return;
+
+  compliance.addAlert("warning", "Complex Table Missing Header Associations",
+    `This data table has grouped or spanning headers. Add explicit associations with headers/id or group scopes so assistive technology can map each data cell to the right headings.`, table);
+}
+
 function reportPossibleLayoutTableIssue(compliance, table, likelyDataTable) {
   if (!likelyDataTable && isPossibleLayoutTable(table)) {
     compliance.addAlert("info", "Possible Layout Table",
@@ -2097,11 +2596,15 @@ function buildAriaMarkupFixSuggestions(title, element) {
     ];
   }
 
-  if (["Invalid aria-describedby Reference", "Duplicate aria-describedby Reference", "Invalid Input Not Described"].includes(normalizedTitle)) {
+  if (["Invalid aria-describedby Reference", "Duplicate aria-describedby Reference", "Invalid Input Not Described", "Missing Error Message Element"].includes(normalizedTitle)) {
     return [
       {
         heading: "Point aria-describedby to a real helper or error element",
         code: `<input id="${escapeAttribute(elementId)}" aria-describedby="${escapeAttribute(errorId)}" aria-invalid="true" />\n<div id="${escapeAttribute(errorId)}">Explain the validation problem here.</div>`
+      },
+      {
+        heading: "Use aria-errormessage for the validation message",
+        code: `<input id="${escapeAttribute(elementId)}" aria-invalid="true" aria-errormessage="${escapeAttribute(errorId)}" />\n<div id="${escapeAttribute(errorId)}" role="alert">Explain the validation problem here.</div>`
       }
     ];
   }
@@ -2122,6 +2625,19 @@ function buildAriaMarkupFixSuggestions(title, element) {
         code: misspelling
           ? `<div ${escapeAttribute(misspelling.expected)}="${escapeAttribute(labelId)}"></div>`
           : `<div aria-labelledby="${escapeAttribute(labelId)}"></div>`
+      }
+    ];
+  }
+
+  if (normalizedTitle === "Empty ARIA Label") {
+    return [
+      {
+        heading: "Give the control a real aria-label or remove the empty one",
+        code: `<button type="button" aria-label="Open details">Open details</button>`
+      },
+      {
+        heading: "Prefer visible text over an empty aria-label",
+        code: `<button type="button">Open details</button>`
       }
     ];
   }
@@ -2169,53 +2685,57 @@ function buildAriaMarkupFixSuggestions(title, element) {
   ];
 }
 
-function getComplianceFixContent(title, element) {
-  const normalizedTitle = String(title || "");
-
-  if ([
-    "Duplicate ID",
-    "Duplicate ID Referenced",
-    "ARIA Attribute Misspelled",
-    "Invalid Role Value",
-    "Heading Role Missing aria-level",
-    "Invalid aria-level Value",
-    "Invalid aria-labelledby Reference",
-    "Invalid aria-describedby Reference",
-    "Duplicate aria-labelledby Reference",
-    "Duplicate aria-describedby Reference",
-    "Focusable Element Hidden From Screen Readers",
-    "Invalid Input Not Described"
-  ].includes(normalizedTitle)) {
-    return {
-      heading: "Suggested Fix: Correct the ARIA or reference markup",
-      description: "This issue is usually resolved by using valid ARIA attributes, unique IDs, and references that point to real elements exactly once.",
-      snippets: buildAriaMarkupFixSuggestions(normalizedTitle, element)
-    };
+function getDocumentMetadataFixContent(normalizedTitle) {
+  if (!["Missing Page Title", "Vague Page Title", "Missing Language Declaration", "Missing Lang Attribute", "Redundant Lang Attribute", "Missing Viewport Meta Tag"].includes(normalizedTitle)) {
+    return null;
   }
 
-  if ([
-    "Table Missing Caption",
-    "Table Missing thead",
-    "Table Missing tbody",
-    "Table Header Missing Scope",
-    "Table Missing Header Cells",
-    "Possible Layout Table"
-  ].includes(normalizedTitle)) {
-    return {
-      heading: "Suggested Fix: Correct the table structure",
-      description: "Data tables need a caption, real header cells, and clear row grouping. Layout tables should usually be replaced with non-table layout markup.",
-      snippets: buildTableFixSuggestions(normalizedTitle, element)
-    };
+  return {
+    heading: "Suggested Fix: Correct the document metadata",
+    description: "These issues are fixed in the page head or root html element so browsers and assistive technology get the right page metadata.",
+    snippets: buildDocumentMetadataFixSuggestions(normalizedTitle)
+  };
+}
+
+function getAriaFixContent(normalizedTitle, element) {
+  if (!["Duplicate ID", "Duplicate ID Referenced", "ARIA Attribute Misspelled", "Invalid Role Value", "Heading Role Missing aria-level", "Invalid aria-level Value", "Empty ARIA Label", "Invalid aria-labelledby Reference", "Invalid aria-describedby Reference", "Duplicate aria-labelledby Reference", "Duplicate aria-describedby Reference", "Focusable Element Hidden From Screen Readers", "Invalid Input Not Described", "Missing Error Message Element", "Invalid aria-live Value", "Live Region Should Have aria-atomic"].includes(normalizedTitle)) {
+    return null;
   }
 
-  if (normalizedTitle === "Form Should Be Labeled") {
-    return {
-      heading: "Suggested Fix: Add an accessible form label",
-      description: "This form needs an accessible name. You can label the form directly with aria-label, or add the same label through Razor Html.BeginForm.",
-      snippets: buildFormLabelFixSuggestions(element)
-    };
+  const isLiveRegionFix = ["Invalid aria-live Value", "Live Region Should Have aria-atomic"].includes(normalizedTitle);
+  return {
+    heading: "Suggested Fix: Correct the ARIA or reference markup",
+    description: isLiveRegionFix
+      ? "Live regions need valid ARIA state so assistive technology announces updates at the right time and in the right way."
+      : "This issue is usually resolved by using valid ARIA attributes, unique IDs, and references that point to real elements exactly once.",
+    snippets: isLiveRegionFix
+      ? buildLiveRegionFixSuggestions(normalizedTitle, element)
+      : buildAriaMarkupFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getTableFixContent(normalizedTitle, element) {
+  if (!["Table Missing Caption", "Table Missing thead", "Table Missing tbody", "Table Header Missing Scope", "Table Missing Header Cells", "Complex Table Missing Header Associations", "Possible Layout Table"].includes(normalizedTitle)) {
+    return null;
   }
 
+  return {
+    heading: "Suggested Fix: Correct the table structure",
+    description: "Data tables need a caption, real header cells, and clear row grouping. Layout tables should usually be replaced with non-table layout markup.",
+    snippets: buildTableFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getFormLabelFixContent(normalizedTitle, element) {
+  if (normalizedTitle !== "Form Should Be Labeled") return null;
+  return {
+    heading: "Suggested Fix: Add an accessible form label",
+    description: "This form needs an accessible name. You can label the form directly with aria-label, or add the same label through Razor Html.BeginForm.",
+    snippets: buildFormLabelFixSuggestions(element)
+  };
+}
+
+function getPageHeadingFixContent(normalizedTitle) {
   if (["No Headings Found", "Missing Level 1 Heading"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Add a page heading",
@@ -2224,6 +2744,27 @@ function getComplianceFixContent(title, element) {
     };
   }
 
+  if (normalizedTitle === "Multiple Level 1 Headings") {
+    return {
+      heading: "Suggested Fix: Keep one level 1 heading",
+      description: "A page should usually have one main heading that identifies the page. Other headings should step down to h2 and below.",
+      snippets: buildHeadingCountFixSuggestions()
+    };
+  }
+
+  return null;
+}
+
+function getHeadingStructureFixContent(normalizedTitle, element) {
+  if (!["Heading Level Skip", "Empty Heading", "Consider ARIA Heading Roles"].includes(normalizedTitle)) return null;
+  return {
+    heading: "Suggested Fix: Repair the heading structure",
+    description: "Headings should have real text and move through the outline one level at a time so users can understand page structure quickly.",
+    snippets: buildHeadingStructureFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getLandmarkFixContent(normalizedTitle) {
   if (["Missing Main Content Region", "Missing Main Landmark"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Add a main content landmark",
@@ -2232,22 +2773,38 @@ function getComplianceFixContent(title, element) {
     };
   }
 
-  if (normalizedTitle === "Missing Navigation Landmark") {
+  if (normalizedTitle === "Custom Main Content Container Missing Landmark") {
+    return {
+      heading: "Suggested Fix: Mark this container as the main content",
+      description: "This container already looks like the page's primary content area. Mark it as the main landmark so assistive technology users can jump straight to it.",
+      snippets: buildMainLandmarkFixSuggestions()
+    };
+  }
+
+  if (["Missing Navigation Landmark", "Custom Navigation Container Missing Landmark"].includes(normalizedTitle)) {
+    const description = normalizedTitle === "Custom Navigation Container Missing Landmark"
+      ? "This container already looks like navigation. Mark it as a navigation landmark so assistive technology users can find it quickly."
+      : "Repeated site or section navigation should live in a named navigation landmark so assistive technology users can find it quickly.";
     return {
       heading: "Suggested Fix: Add a navigation landmark",
-      description: "Repeated site or section navigation should live in a named navigation landmark so assistive technology users can find it quickly.",
+      description,
       snippets: buildNavigationLandmarkFixSuggestions()
     };
   }
 
-  if (["Missing Skip Link", "Missing Skip to Main Content Link"].includes(normalizedTitle)) {
-    return {
-      heading: "Suggested Fix: Add a skip link",
-      description: "A skip link lets keyboard users bypass repeated navigation and jump straight to the main content region.",
-      snippets: buildSkipLinkFixSuggestions()
-    };
-  }
+  return null;
+}
 
+function getSkipLinkFixContent(normalizedTitle) {
+  if (!["Missing Skip Link", "Missing Skip to Main Content Link"].includes(normalizedTitle)) return null;
+  return {
+    heading: "Suggested Fix: Add a skip link",
+    description: "A skip link lets keyboard users bypass repeated navigation and jump straight to the main content region.",
+    snippets: buildSkipLinkFixSuggestions()
+  };
+}
+
+function getImageFixContent(normalizedTitle, element) {
   if (["Missing Alt Text", "Empty Alt Text"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Add appropriate alt text",
@@ -2256,48 +2813,86 @@ function getComplianceFixContent(title, element) {
     };
   }
 
-  if (normalizedTitle === "Iframe Missing Title") {
-    const source = escapeAttribute(String(element?.getAttribute?.("src") || "/embedded-content").trim() || "/embedded-content");
+  if (["Presentation Role Conflicts with Alt Text", "Redundant Alt Text"].includes(normalizedTitle)) {
     return {
-      heading: "Suggested Fix: Give the embedded frame a descriptive title",
-      description: "An iframe title tells screen reader users what the embedded content is before they enter it.",
-      snippets: [
-        {
-          heading: "Add a clear title that describes the embedded content",
-          code: `<iframe src="${source}" title="Quarterly staffing dashboard"></iframe>`
-        },
-        {
-          heading: "If the frame is interactive, describe the task or destination",
-          code: `<iframe src="${source}" title="Training registration form"></iframe>`
-        }
-      ]
+      heading: "Suggested Fix: Align the image meaning with the alt text",
+      description: "Decorative images should stay hidden from assistive technology, and meaningful images should use concise alt text without redundant words.",
+      snippets: buildImageMeaningFixSuggestions(normalizedTitle, element)
     };
   }
 
-  if (["Icon-Only Button Missing Label", "Button Missing Text"].includes(normalizedTitle)) {
-    return {
-      heading: "Suggested Fix: Label the button action",
-      description: "Buttons need an accessible name. Use visible text when possible, or add aria-label when the button is icon-only.",
-      snippets: buildButtonLabelFixSuggestions(element)
-    };
-  }
+  return null;
+}
 
-  if (normalizedTitle === "Grouped Choices Missing Fieldset") {
-    return {
-      heading: "Suggested Fix: Group related choices with fieldset and legend",
-      description: "When multiple radio buttons or checkboxes answer one question, wrap them in a fieldset and put the question in a legend.",
-      snippets: buildChoiceGroupFixSuggestions(element)
-    };
-  }
+function getEmbeddedContentFixContent(normalizedTitle, element) {
+  if (!["Iframe Missing Title", "Iframe Title Too Generic", "Embedded Content Missing Label"].includes(normalizedTitle)) return null;
+  return {
+    heading: normalizedTitle === "Embedded Content Missing Label"
+      ? "Suggested Fix: Give embedded content an accessible label"
+      : "Suggested Fix: Give the embedded frame a descriptive title",
+    description: normalizedTitle === "Iframe Title Too Generic"
+      ? "A frame title like 'frame' or 'content' is too vague. Name the actual content or task so users know what they are entering."
+      : "An embedded-content title tells screen reader users what the content is before they enter it.",
+    snippets: buildEmbeddedContentFixSuggestions(normalizedTitle, element)
+  };
+}
 
-  if (["Link Missing Text", "Vague Link Text", "Ambiguous Link Text"].includes(normalizedTitle)) {
+function getButtonLabelFixContent(normalizedTitle, element) {
+  if (!["Icon-Only Button Missing Label", "Button Missing Text"].includes(normalizedTitle)) return null;
+  return {
+    heading: "Suggested Fix: Label the button action",
+    description: "Buttons need an accessible name. Use visible text when possible, or add aria-label when the button is icon-only.",
+    snippets: buildButtonLabelFixSuggestions(element)
+  };
+}
+
+function getChoiceGroupFixContent(normalizedTitle, element) {
+  if (normalizedTitle !== "Grouped Choices Missing Fieldset") return null;
+  return {
+    heading: "Suggested Fix: Group related choices with fieldset and legend",
+    description: "When multiple radio buttons or checkboxes answer one question, wrap them in a fieldset and put the question in a legend.",
+    snippets: buildChoiceGroupFixSuggestions(element)
+  };
+}
+
+function getLinkFixContent(normalizedTitle, element) {
+  if (["Link Missing Text", "Vague Link Text", "Ambiguous Link Text", "Duplicate Link Text, Different Destination"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Make the link name descriptive",
-      description: "Links need an accessible name that makes sense out of context. Prefer visible text that describes the destination or action.",
+      description: normalizedTitle === "Duplicate Link Text, Different Destination"
+        ? "When repeated links go to different destinations, each one should say where it goes. Users should not have to guess which repeated label is the right one."
+        : "Links need an accessible name that makes sense out of context. Prefer visible text that describes the destination or action.",
       snippets: buildLinkTextFixSuggestions(normalizedTitle, element)
     };
   }
 
+  if (normalizedTitle === "Link Opens in New Window") {
+    return {
+      heading: "Suggested Fix: Warn users before opening a new window",
+      description: "When a link opens a new tab or window, tell users in the visible text or accessible name so they do not lose context.",
+      snippets: buildContextualLinkFixSuggestions(normalizedTitle, element)
+    };
+  }
+
+  if (["Broken Fragment Link", "Broken Same-Origin Link", "Same-Origin Link Redirects", "Same-Origin Link Requires Authentication"].includes(normalizedTitle)) {
+    let description = "This link should point to a real in-page target or a same-origin destination that returns successfully for the current user.";
+    if (normalizedTitle === "Same-Origin Link Redirects") {
+      description = "This link reaches a same-origin destination through a redirect. Prefer the final destination when that improves clarity and stability.";
+    } else if (normalizedTitle === "Same-Origin Link Requires Authentication") {
+      description = "This link reaches a protected same-origin destination. Make sure users are warned when sign-in is required, or fix the permissions if the content should be public.";
+    }
+
+    return {
+      heading: "Suggested Fix: Repair the link target",
+      description,
+      snippets: buildBrokenLinkFixSuggestions(normalizedTitle, element)
+    };
+  }
+
+  return null;
+}
+
+function getInputFixContent(normalizedTitle, element) {
   if (normalizedTitle === "Input Missing Label") {
     return {
       heading: "Suggested Fix: Add an accessible input label",
@@ -2319,23 +2914,91 @@ function getComplianceFixContent(title, element) {
     };
   }
 
-  if (["Non-Semantic Button", "Anchor Uses Button Role", "Non-Semantic Link", "Non-Standard Click Handler", "Button Role Missing Keyboard Handler", "Button Role Not Focusable", "Accessible Name Does Not Include Visible Label"].includes(normalizedTitle)) {
+  return null;
+}
+
+function getSemanticControlFixContent(normalizedTitle, element) {
+  if (!["Non-Semantic Button", "Anchor Uses Button Role", "Non-Semantic Link", "Non-Standard Click Handler", "Button Role Missing Keyboard Handler", "Button Role Not Focusable", "Accessible Name Does Not Include Visible Label"].includes(normalizedTitle)) {
+    return null;
+  }
+
+  return {
+    heading: "Suggested Fix: Use the native interactive element",
+    description: "When a control navigates, use a real link. When it performs an action on the page, use a real button. Native controls give keyboard and assistive technology behavior for free.",
+    snippets: buildSemanticControlFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getContrastAndFocusFixContent(normalizedTitle, element) {
+  if (normalizedTitle === "Low Color Contrast") {
     return {
-      heading: "Suggested Fix: Use the native interactive element",
-      description: "When a control navigates, use a real link. When it performs an action on the page, use a real button. Native controls give keyboard and assistive technology behavior for free.",
-      snippets: buildSemanticControlFixSuggestions(normalizedTitle, element)
+      heading: "Suggested Fix: Increase the color contrast",
+      description: "Text and interactive controls need enough foreground and background contrast to stay readable for low-vision users.",
+      snippets: buildContrastFixSuggestions(element)
     };
   }
 
-  if (["Broken Fragment Link", "Broken Same-Origin Link"].includes(normalizedTitle)) {
+  if (normalizedTitle === "Missing Focus Indicator") {
     return {
-      heading: "Suggested Fix: Repair the link target",
-      description: "This link should point to a real in-page target or a same-origin destination that returns successfully for the current user.",
-      snippets: buildBrokenLinkFixSuggestions(normalizedTitle, element)
+      heading: "Suggested Fix: Add a visible keyboard focus indicator",
+      description: "Keyboard users need a clear, persistent focus ring when they tab to an interactive control.",
+      snippets: buildFocusIndicatorFixSuggestions(element)
     };
   }
 
   return null;
+}
+
+function getMediaFixContent(normalizedTitle, element) {
+  if (!["Audio Missing Transcript", "Video Missing Captions", "Video Missing Descriptions"].includes(normalizedTitle)) return null;
+  return {
+    heading: "Suggested Fix: Add the missing media alternative",
+    description: "Time-based media needs the right text or timed alternatives so people can access the same content without relying on hearing or vision alone.",
+    snippets: buildMediaAlternativeFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getListFixContent(normalizedTitle, element) {
+  if (!["Empty List", "Invalid List Content"].includes(normalizedTitle)) return null;
+  return {
+    heading: "Suggested Fix: Repair the list structure",
+    description: "Lists should contain real list items, and non-list layout patterns should not use ul or ol markup.",
+    snippets: buildListFixSuggestions(normalizedTitle, element)
+  };
+}
+
+function getMotionFixContent(normalizedTitle) {
+  if (normalizedTitle !== "Motion Not Reduced") return null;
+  return {
+    heading: "Suggested Fix: Respect reduced-motion preferences",
+    description: "Motion effects should stop, simplify, or become optional when the user asks for reduced motion.",
+    snippets: buildMotionFixSuggestions()
+  };
+}
+
+function getComplianceFixContent(title, element) {
+  const normalizedTitle = String(title || "");
+
+  return getDocumentMetadataFixContent(normalizedTitle)
+    || getAriaFixContent(normalizedTitle, element)
+    || getTableFixContent(normalizedTitle, element)
+    || getFormLabelFixContent(normalizedTitle, element)
+    || getPageHeadingFixContent(normalizedTitle)
+    || getHeadingStructureFixContent(normalizedTitle, element)
+    || getLandmarkFixContent(normalizedTitle)
+    || getSkipLinkFixContent(normalizedTitle)
+    || getImageFixContent(normalizedTitle, element)
+    || getEmbeddedContentFixContent(normalizedTitle, element)
+    || getButtonLabelFixContent(normalizedTitle, element)
+    || getChoiceGroupFixContent(normalizedTitle, element)
+    || getLinkFixContent(normalizedTitle, element)
+    || getInputFixContent(normalizedTitle, element)
+    || getSemanticControlFixContent(normalizedTitle, element)
+    || getContrastAndFocusFixContent(normalizedTitle, element)
+    || getMediaFixContent(normalizedTitle, element)
+    || getListFixContent(normalizedTitle, element)
+    || getMotionFixContent(normalizedTitle)
+    || null;
 }
 
 function getBootstrapButtonClassForLevel(level) {
@@ -2619,42 +3282,50 @@ function getFixableAlertTitles(alerts) {
 function getPlainLanguageIssueDescription(title) {
   const normalizedTitle = String(title || "").trim();
   const descriptions = {
-    "Duplicate ID": "More than one element is using the same ID, so labels, scripts, or links may point to the wrong thing.",
-    "Duplicate ID Referenced": "This label or description points to an ID that is used by more than one element, so the target is ambiguous.",
-    "Accessible Name Does Not Include Visible Label": "Screen readers will say something different from the words people see on the page.",
-    "ARIA Attribute Misspelled": "An ARIA attribute name is misspelled, so browsers and assistive technology will ignore it.",
-    "Invalid Role Value": "This role value is not a real ARIA role, so assistive technology may ignore it or misread it.",
-    "Heading Role Missing aria-level": "This is marked as a heading, but it does not say what heading level it should be.",
-    "Invalid aria-level Value": "This heading level value is not valid, so the heading structure may not be announced correctly.",
-    "Focusable Element Hidden From Screen Readers": "Keyboard users can reach this element, but screen readers are being told to ignore it.",
-    "Grouped Choices Missing Fieldset": "These related choices are missing a shared fieldset and legend, so the group question may not be announced clearly.",
-    "Invalid aria-labelledby Reference": "The aria-labelledby points to an ID that is missing from the page.",
-    "Duplicate aria-labelledby Reference": "The same label ID is being referenced more than once.",
-    "Invalid aria-describedby Reference": "The aria-describedby points to an ID that is missing from the page.",
-    "Duplicate aria-describedby Reference": "The same description ID is being referenced more than once.",
-    "Required Field Not Indicated": "The field is required, but that is not being clearly communicated to users.",
-    "Search Input Role Missing": "This is a search field, but the markup does not identify it as search.",
-    "Broken Fragment Link": "This link tries to jump to part of the page, but that target is not there.",
-    "Broken Same-Origin Link": "This link points to a page or file in this app that could not be reached.",
-    "Anchor Uses Button Role": "This is a link being forced to act like a button.",
-    "Non-Semantic Button": "This is acting like a button without using a real button element.",
-    "Non-Standard Click Handler": "This element can be clicked, but it is not marked up as a normal button or link.",
-    "Button Role Missing Keyboard Handler": "This custom button does not fully support keyboard use.",
-    "Button Role Not Focusable": "This custom button cannot be reached properly with the keyboard.",
-    "Invalid Input Not Described": "The field is marked invalid, but its error message is not tied to it for assistive technology.",
-    "Iframe Missing Title": "This embedded frame does not have a title telling users what content it contains.",
-    "Link Missing Text": "This link has no readable text, so people may not know what it does.",
-    "Vague Link Text": "This link text is too generic, so it does not explain where the link goes.",
-    "Ambiguous Link Text": "This link text is unclear on its own and needs more context than users may have.",
-    "Disabled State Not Announced": "This control is disabled, but that disabled state is not being exposed clearly enough.",
-    "Link Opens in New Window": "This link opens a new tab or window, but users may not be warned clearly enough.",
-    "Table Missing Caption": "This table does not have a caption to explain what the table is for.",
-    "Table Missing thead": "This table is missing a header section, which makes the structure harder to understand.",
-    "Table Header Missing Scope": "This table header does not say whether it applies to a row or a column.",
-    "Table Missing Header Cells": "This table uses data cells without proper header cells, so row and column meaning is unclear.",
-    "Possible Layout Table": "This table looks like it may be used for page layout instead of real tabular data.",
-    "Missing Navigation Landmark": "There is no clear navigation landmark for assistive technology to jump to.",
-    "Missing Main Landmark": "There is no main content landmark, so assistive technology users may have a harder time skipping to the page body."
+    "Duplicate ID": "More than one thing on the page is using this same ID. Labels, links, scripts, or error messages can end up pointing to the wrong thing.",
+    "Duplicate ID Referenced": "This element points to an ID that belongs to more than one thing. The page may pull the wrong label or description.",
+    "Accessible Name Does Not Include Visible Label": "The name read out loud does not match the words the user sees on the screen. Make the spoken name include the same visible words so everyone is talking about the same control.",
+    "ARIA Attribute Misspelled": "An aria- attribute is spelled wrong. Browsers and assistive tools will ignore it.",
+    "Invalid Role Value": "This role name is not a real role. Assistive tools may not understand what this element is supposed to be.",
+    "Heading Role Missing aria-level": "This is marked as a heading, but it does not say which heading level it is. Say whether it acts like an H1, H2, H3, and so on.",
+    "Invalid aria-level Value": "This heading level is not valid. Assistive tools may place it in the wrong spot in the page outline.",
+    "Focusable Element Hidden From Screen Readers": "Keyboard users can tab to this item, but screen readers are told to ignore it. Some users can reach it while others may not know it is there.",
+    "Grouped Choices Missing Fieldset": "These choices belong to one question, but the group is not labeled as one group. Users may hear the answers without hearing the question first.",
+    "Invalid aria-labelledby Reference": "The aria-labelledby points to something that is not on the page. The label may never be read out loud.",
+    "Duplicate aria-labelledby Reference": "The same label is listed more than once. Screen readers may repeat the same label text.",
+    "Invalid aria-describedby Reference": "The aria-describedby points to something that is not on the page. Help text or error text may never be read out loud.",
+    "Duplicate aria-describedby Reference": "The same description is listed more than once. Screen readers may repeat the same description text.",
+    "Required Field Not Indicated": "This field must be filled in, but the page is not clearly telling the user that.",
+    "Search Input Role Missing": "This looks like a search box, but the markup does not say it is a search box. Assistive tools may treat it like a plain text field.",
+    "Broken Fragment Link": "This link is supposed to jump to a spot on the same page, but that spot does not exist.",
+    "Broken Same-Origin Link": "This link points to a page or file in this app, but that page or file could not be reached when checked.",
+    "Same-Origin Link Redirects": "This link reaches the destination through a redirect. It may still work, but the extra hop can hide where the link really goes.",
+    "Same-Origin Link Requires Authentication": "This link points to a page in this app that requires sign-in or permission. Users may hit an access barrier instead of the content they expected.",
+    "Anchor Uses Button Role": "This is still a link in the code, but it is trying to behave like a button. That often causes confusing keyboard and screen reader behavior.",
+    "Non-Semantic Button": "This acts like a button, but it is not built as a real button or an equally accessible pattern.",
+    "Non-Standard Click Handler": "This element reacts to mouse clicks, but it is not exposed as a normal button or link. Keyboard and screen reader support may be incomplete.",
+    "Button Role Missing Keyboard Handler": "This custom button can be clicked, but it does not fully support normal keyboard actions like Enter or Space.",
+    "Button Role Not Focusable": "This custom button cannot be reached with normal keyboard tabbing, so some users may not be able to use it at all.",
+    "Invalid Input Not Described": "This field is marked as invalid, but its error message is not tied to the field. Screen readers may not say what is wrong.",
+    "Iframe Missing Title": "This frame has no title, so users are not told what it contains before they move into it.",
+    "Iframe Title Too Generic": "This frame has a title, but it is too generic to tell users what the embedded content actually is.",
+    "Embedded Content Missing Label": "This embedded content has no clear accessible label, so users may not know what it contains or why it is there.",
+    "Link Missing Text": "This link has no clear name. Users may find the link, but they will not know where it goes or what it does.",
+    "Vague Link Text": "This link text is too generic, like 'click here' or 'read more.' It does not say where the link goes.",
+    "Ambiguous Link Text": "This link text does not make sense by itself. If users hear it out of context, they still will not know what it means.",
+    "Duplicate Link Text, Different Destination": "These links sound the same, but they go to different places. Users can have trouble knowing which one to choose.",
+    "Disabled State Not Announced": "This control looks disabled, but assistive tools may not be told that it is disabled.",
+    "Link Opens in New Window": "This link opens a new tab or window. If the page does not warn the user, they can lose their place and get confused.",
+    "Table Missing Caption": "This table does not say what the table is about. Add a caption so users know the table's topic before reading the cells.",
+    "Table Missing thead": "This table has no clear header section. That makes the table structure harder for browsers and assistive tools to understand.",
+    "Table Header Missing Scope": "This header cell does not say whether it belongs to a row or a column. That makes cell relationships harder to announce clearly.",
+    "Table Missing Header Cells": "This table has data cells, but it does not have the header cells users need to understand what the data means.",
+    "Complex Table Missing Header Associations": "This table has grouped or spanning headers, but the cells are not explicitly tied to the right headers. Screen readers may announce the wrong context or not enough context.",
+    "Possible Layout Table": "This looks like a table being used just for layout. Screen readers may still treat it like a real data table.",
+    "Missing Navigation Landmark": "There is no clear navigation area for assistive tool users to jump to when they want the site's navigation.",
+    "Missing Main Landmark": "There is no clear main content area, so users may have a harder time skipping past repeated page chrome to get to the real content.",
+    "Custom Navigation Container Missing Landmark": "This area already looks like navigation, but it is not marked as a navigation landmark. Users may miss it when they jump through page regions.",
+    "Custom Main Content Container Missing Landmark": "This looks like the page's main content, but it is not marked as the main landmark. Users may have a harder time jumping to the real content."
   };
 
   return descriptions[normalizedTitle] || "";
@@ -2670,7 +3341,33 @@ function getAriaAttributeNameFromText(text) {
   return match ? match[0].toLowerCase() : "";
 }
 
+function getExpectedAriaAttributeNameFromMessage(message) {
+  const visibleText = String(message || "");
+  const expectedAttributePattern = /use\s+(aria-[a-z0-9-]+)\s+instead/i;
+  const match = expectedAttributePattern.exec(visibleText);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function getSuggestedAriaRoleNameFromMessage(message) {
+  const visibleText = String(message || "");
+  const rolePattern = /use\s+role="([a-z0-9-]+)"\s+instead/i;
+  const match = rolePattern.exec(visibleText);
+  return match ? match[1].toLowerCase() : "";
+}
+
 function getAriaReferenceUrl(title, message) {
+  const normalizedTitle = String(title || "").trim();
+
+  if (normalizedTitle === "ARIA Attribute Misspelled") {
+    const expectedAttributeName = getExpectedAriaAttributeNameFromMessage(message);
+    return expectedAttributeName ? `${MDN_ARIA_REFERENCE_BASE}${expectedAttributeName}` : "";
+  }
+
+  if (normalizedTitle === "Invalid Role Value") {
+    const suggestedRoleName = getSuggestedAriaRoleNameFromMessage(message);
+    return suggestedRoleName ? `${MDN_ARIA_ROLE_REFERENCE_BASE}${suggestedRoleName}_role` : "";
+  }
+
   const ariaAttributeName = getAriaAttributeNameFromText(`${title || ""} ${message || ""}`);
   return ariaAttributeName ? `${MDN_ARIA_REFERENCE_BASE}${ariaAttributeName}` : "";
 }
@@ -2714,6 +3411,19 @@ function getVisibleControlText(element) {
   return String(clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+function getVisibleNameBearingText(element) {
+  if (!(element instanceof Element)) return "";
+
+  if (element instanceof HTMLInputElement) {
+    const inputType = String(element.type || "text").toLowerCase();
+    if (["button", "submit", "reset"].includes(inputType)) {
+      return String(element.value || "").trim();
+    }
+  }
+
+  return getVisibleControlText(element);
+}
+
 function normalizeAccessibleNameText(value) {
   return String(value || "")
     .toLowerCase()
@@ -2721,6 +3431,73 @@ function normalizeAccessibleNameText(value) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function getLinkAuditLabel(link) {
+  if (!(link instanceof Element)) return "";
+
+  const visibleText = getVisibleControlText(link);
+  if (visibleText) return visibleText;
+
+  const ariaLabel = String(link.getAttribute("aria-label") || "").trim();
+  if (ariaLabel) return ariaLabel;
+
+  const ariaLabelledbyText = getReferencedTextContent(link.getAttribute("aria-labelledby"));
+  if (ariaLabelledbyText) return ariaLabelledbyText;
+
+  return String(link.getAttribute("title") || "").trim();
+}
+
+function getNormalizedLinkDestination(rawHref) {
+  const hrefText = String(rawHref || "").trim();
+  if (!hrefText) return "";
+
+  const auditUrl = resolveComplianceAuditUrl(hrefText);
+  if (!(auditUrl instanceof URL)) return hrefText;
+
+  if (auditUrl.protocol === "http:" || auditUrl.protocol === "https:") {
+    return `${auditUrl.origin}${auditUrl.pathname}${auditUrl.search}${auditUrl.hash}`;
+  }
+
+  return auditUrl.href;
+}
+
+function getEmbeddedContentAccessibleLabel(element) {
+  if (!(element instanceof Element)) return "";
+
+  const title = String(element.getAttribute("title") || "").trim();
+  if (title) return title;
+
+  const ariaLabel = String(element.getAttribute("aria-label") || "").trim();
+  if (ariaLabel) return ariaLabel;
+
+  return getReferencedTextContent(element.getAttribute("aria-labelledby"));
+}
+
+function hasOverlyGenericEmbeddedTitle(value) {
+  const normalized = normalizeAccessibleNameText(value);
+  return ["frame", "iframe", "content", "embedded content", "widget", "panel", "document"].includes(normalized);
+}
+
+function collectValidationMessageElements(input) {
+  if (!(input instanceof Element)) return [];
+
+  const inputId = String(input.getAttribute("id") || "").trim();
+  const describedByElements = getReferencedElements(input.getAttribute("aria-describedby"));
+  const errorMessageElements = getReferencedElements(input.getAttribute("aria-errormessage"));
+  const conventionalElements = inputId
+    ? [
+        document.getElementById(`${inputId}-error`),
+        document.getElementById(`${inputId}Error`),
+        document.querySelector(`[data-error-for='${CSS.escape(inputId)}']`)
+      ].filter((element) => element instanceof Element)
+    : [];
+
+  return Array.from(new Set([
+    ...describedByElements,
+    ...errorMessageElements,
+    ...conventionalElements
+  ]));
 }
 
 function accessibleNameContainsVisibleLabel(visibleText, accessibleName) {
@@ -2735,12 +3512,27 @@ function getAccessibleNameOverrideDetails(element) {
   if (!(element instanceof Element)) return null;
 
   const isInputControl = element.matches("input, select, textarea");
-  const visibleText = isInputControl ? getAssociatedLabelText(element) : getVisibleControlText(element);
+  const role = String(element.getAttribute("role") || "").trim().toLowerCase();
+  let inputType = "";
+  if (element instanceof HTMLInputElement) {
+    inputType = String(element.type || "text").toLowerCase();
+  }
+  const usesOwnVisibleText = element.tagName === "SUMMARY"
+    || ["button", "submit", "reset"].includes(inputType)
+    || ["button", "link", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "treeitem", "gridcell"].includes(role);
+  let visibleText = getVisibleControlText(element);
+  if (usesOwnVisibleText) {
+    visibleText = getVisibleNameBearingText(element);
+  } else if (isInputControl) {
+    visibleText = getAssociatedLabelText(element);
+  }
   let labelKind = "button text";
   if (isInputControl) {
     labelKind = "label";
   } else if (element.tagName === "A") {
     labelKind = "link text";
+  } else if (element.tagName === "SUMMARY" || usesOwnVisibleText) {
+    labelKind = "visible control text";
   }
   if (!visibleText) return null;
 
@@ -3050,15 +3842,30 @@ function reportAriaHiddenFocusConflict(compliance, elem) {
 }
 
 function getMoreInfoUrl(title, message) {
-  const ariaReferenceUrl = getAriaReferenceUrl(title, message);
-  if (ariaReferenceUrl) return ariaReferenceUrl;
-
   const normalizedTitle = String(title || "").trim();
   const directUrl = MORE_INFO_URL_BY_TITLE[normalizedTitle];
   if (directUrl) return directUrl;
 
+  const ariaReferenceUrl = getAriaReferenceUrl(title, message);
+  if (ariaReferenceUrl) return ariaReferenceUrl;
+
   const query = MORE_INFO_QUERY_BY_TITLE[normalizedTitle];
   return query ? `${MDN_SEARCH_BASE}${encodeURIComponent(query)}` : "";
+}
+
+function getIssueGuideUrl(title = "", message = "") {
+  const guideBaseUrl = globalThis.TzedekConfig?.assetBaseUrl;
+  const baseUrl = typeof guideBaseUrl === "string" && guideBaseUrl.trim().length > 0
+    ? guideBaseUrl
+    : new URL("./assets/", import.meta.url).href;
+  const guideUrl = new URL("issue-guide.html", baseUrl);
+  const normalizedTitle = title.trim();
+  const normalizedMessage = message.trim();
+  guideUrl.searchParams.set("title", normalizedTitle);
+  if (normalizedMessage) {
+    guideUrl.searchParams.set("message", normalizedMessage);
+  }
+  return guideUrl.href;
 }
 
 function ensureBootstrapIconsStyles() {
@@ -3446,6 +4253,14 @@ function createComplianceAlert(level, title, message, element) {
     alertDiv.appendChild(moreInfoLink);
   }
 
+  const issueGuideLink = document.createElement("a");
+  issueGuideLink.className = "sml-compliance-more-info";
+  issueGuideLink.href = getIssueGuideUrl(title, message);
+  issueGuideLink.target = "_blank";
+  issueGuideLink.rel = "noopener noreferrer";
+  issueGuideLink.textContent = "Tzedek Guide";
+  alertDiv.appendChild(issueGuideLink);
+
   applyAlertSeverityToToggle(toggleButton, level);
   maybeAppendFixButton(alertDiv, level, title, element);
   markSmlcElementTree(alertDiv);
@@ -3487,6 +4302,7 @@ export class smlCompliance {
       () => this.checkButtons(),
       () => this.checkForms(),
       () => this.checkInputs(),
+      () => this.checkComplexControlNames(),
       () => this.checkAriaLabels(),
       () => this.checkColorContrast(),
       () => this.checkFocusIndicators(),
@@ -3695,6 +4511,7 @@ export class smlCompliance {
    */
   async checkLinks() {
     const links = Array.from(document.querySelectorAll("a[href]"));
+    const linkTextGroups = new Map();
     
     for (const link of links) {
       if (link.closest(".sml-compliance-alert, #sml-compliance-results-panel, .sml-compliance-fix-modal, .sml-compliance-fix-modal-backdrop")) {
@@ -3704,6 +4521,20 @@ export class smlCompliance {
       const text = link.textContent.trim();
       const ariaLabel = link.getAttribute("aria-label");
       const title = link.getAttribute("title");
+      const rawHref = String(link.getAttribute("href") || "").trim();
+
+      const linkAuditLabel = getLinkAuditLabel(link);
+      const normalizedLinkAuditLabel = normalizeAccessibleNameText(linkAuditLabel);
+      const normalizedDestination = getNormalizedLinkDestination(rawHref);
+      if (normalizedLinkAuditLabel && normalizedDestination) {
+        const existingGroup = linkTextGroups.get(normalizedLinkAuditLabel) || [];
+        existingGroup.push({
+          element: link,
+          label: linkAuditLabel,
+          destination: normalizedDestination
+        });
+        linkTextGroups.set(normalizedLinkAuditLabel, existingGroup);
+      }
       
       if (!text && !ariaLabel && !title) {
         this.addAlert("critical", "Link Missing Text", 
@@ -3748,7 +4579,6 @@ export class smlCompliance {
         continue;
       }
 
-      const rawHref = String(link.getAttribute("href") || "").trim();
       if (!rawHref || rawHref === "#") {
         continue;
       }
@@ -3777,7 +4607,15 @@ export class smlCompliance {
       }
 
       const result = await getCachedComplianceLinkStatus(auditUrl, this.cfg.brokenLinkTimeoutMs);
-      if (result?.kind === "http-error") {
+      if (result?.kind === "redirect") {
+        const redirectStatusText = result.status ? ` with ${result.status}` : "";
+        const finalDestination = result.finalUrl || `${auditUrl.pathname}${auditUrl.search}`;
+        this.addAlert("info", "Same-Origin Link Redirects",
+          `Link redirects${redirectStatusText} before reaching ${finalDestination}. Consider linking directly to the final destination if that is the intended page.`, link);
+      } else if (result?.kind === "http-error" && (result.status === 401 || result.status === 403)) {
+        this.addAlert("warning", "Same-Origin Link Requires Authentication",
+          `Link returns ${result.status} ${describeHttpStatus(result.status)} for ${auditUrl.pathname}${auditUrl.search}. Users may need to sign in or may not have permission to reach this page.`, link);
+      } else if (result?.kind === "http-error") {
         this.addAlert("error", "Broken Same-Origin Link",
           `Link returns ${result.status} ${describeHttpStatus(result.status)} for ${auditUrl.pathname}${auditUrl.search}`, link);
       } else if (result?.kind === "timeout") {
@@ -3787,6 +4625,22 @@ export class smlCompliance {
       } else if (result?.kind === "network-error") {
         this.addAlert("error", "Broken Same-Origin Link",
           `Link could not be reached for ${auditUrl.pathname}${auditUrl.search}. ${result.message || "Network error."}`, link);
+      }
+    }
+
+    for (const entries of linkTextGroups.values()) {
+      const uniqueDestinations = Array.from(new Set(entries.map((entry) => entry.destination)));
+      if (entries.length < 2 || uniqueDestinations.length < 2) {
+        continue;
+      }
+
+      const destinationSummary = uniqueDestinations
+        .map((destination) => `"${destination}"`)
+        .join(", ");
+
+      for (const entry of entries) {
+        this.addAlert("warning", "Duplicate Link Text, Different Destination",
+          `Link text "${entry.label}" points to different destinations. Repeated links with the same name should not send users to different places. Found destinations: ${destinationSummary}`, entry.element);
       }
     }
   }
@@ -3897,13 +4751,25 @@ export class smlCompliance {
       }
 
       // Check for error message association
-      const errorId = `${input.id}-error`;
-      const errorMsg = document.querySelector(`#${errorId}`);
       const ariaInvalid = String(input.getAttribute("aria-invalid") || "").trim().toLowerCase();
+      const describedByRefs = getReferencedElements(input.getAttribute("aria-describedby"));
+      const errorMessageRefs = getReferencedElements(input.getAttribute("aria-errormessage"));
+      const validationMessageElements = collectValidationMessageElements(input);
+      const conventionalErrorTargets = validationMessageElements.filter((element) => {
+        const elementId = String(element.getAttribute("id") || "").trim();
+        return Boolean(elementId) && (elementId === `${input.id}-error` || elementId === `${input.id}Error`);
+      });
+
       if (ariaInvalid === "true") {
-        if (!input.hasAttribute("aria-describedby")) {
+        if (describedByRefs.length === 0 && errorMessageRefs.length === 0) {
           this.addAlert("warning", "Invalid Input Not Described", 
-            `Invalid input should have aria-describedby pointing to error message`, input);
+            `Invalid input should reference its validation message with aria-describedby or aria-errormessage`, input);
+        } else if (validationMessageElements.length === 0) {
+          this.addAlert("warning", "Invalid Input Not Described",
+            `Invalid input references a validation message, but the referenced error element was not found`, input);
+        } else if (conventionalErrorTargets.length > 0 && !conventionalErrorTargets.some((element) => describedByRefs.includes(element) || errorMessageRefs.includes(element))) {
+          this.addAlert("warning", "Invalid Input Not Described",
+            `This field has a validation message element, but the field does not reference it with aria-describedby or aria-errormessage`, input);
         }
       }
 
@@ -3915,6 +4781,21 @@ export class smlCompliance {
 
       // Native checkbox/radio inputs already expose implicit semantics.
       // Do not require explicit role attributes on native controls.
+    }
+  }
+
+  checkComplexControlNames() {
+    const controls = Array.from(document.querySelectorAll("summary, [role='link'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='treeitem'], [role='gridcell']"));
+
+    for (const control of controls) {
+      if (!(control instanceof Element) || isSmlcOwnedElement(control) || isHiddenFromAllUsers(control)) continue;
+      if (control.closest(".sml-compliance-alert, .sml-compliance-fix-modal, .sml-compliance-fix-modal-backdrop")) continue;
+
+      const accessibleNameOverride = getAccessibleNameOverrideDetails(control);
+      if (accessibleNameOverride && !accessibleNameContainsVisibleLabel(accessibleNameOverride.visibleText, accessibleNameOverride.accessibleName)) {
+        this.addAlert("warning", "Accessible Name Does Not Include Visible Label",
+          `People see ${accessibleNameOverride.labelKind} "${accessibleNameOverride.visibleText}", but assistive technology gets ${accessibleNameOverride.sourceAttribute} "${accessibleNameOverride.accessibleName}" instead. Keep the visible words inside the screen reader label.`, control);
+      }
     }
   }
 
@@ -4134,6 +5015,7 @@ export class smlCompliance {
   checkMedia() {
     const audio = Array.from(document.querySelectorAll("audio"));
     const iframes = Array.from(document.querySelectorAll("iframe"));
+    const embeddedContent = Array.from(document.querySelectorAll("object, embed"));
     const video = Array.from(document.querySelectorAll("video"));
 
     for (const media of audio) {
@@ -4148,9 +5030,23 @@ export class smlCompliance {
     for (const frame of iframes) {
       if (!(frame instanceof HTMLIFrameElement) || isSmlcOwnedElement(frame)) continue;
 
-      if (!frame.getAttribute("title") || frame.getAttribute("title").trim() === "") {
+      const title = String(frame.getAttribute("title") || "").trim();
+      if (!title) {
         this.addAlert("warning", "Iframe Missing Title",
           "Embedded content should have a descriptive title so assistive technology users know what it contains.", frame);
+      } else if (hasOverlyGenericEmbeddedTitle(title)) {
+        this.addAlert("warning", "Iframe Title Too Generic",
+          `Iframe title "${title}" is too generic. Name the embedded content or task more specifically.`, frame);
+      }
+    }
+
+    for (const embedded of embeddedContent) {
+      if (!(embedded instanceof HTMLEmbedElement || embedded instanceof HTMLObjectElement) || isSmlcOwnedElement(embedded)) continue;
+
+      const label = getEmbeddedContentAccessibleLabel(embedded);
+      if (!label) {
+        this.addAlert("warning", "Embedded Content Missing Label",
+          "Embedded object or embed content should have a descriptive title or accessible label.", embedded);
       }
     }
 
@@ -4184,6 +5080,7 @@ export class smlCompliance {
       reportTableCaptionIssue(this, table, summary, likelyDataTable);
       reportTableHeaderStructureIssues(this, table, summary, likelyDataTable);
       reportTableHeaderScopeIssues(this, summary.headerCells);
+      reportComplexTableAssociationIssues(this, table, summary, likelyDataTable);
       reportPossibleLayoutTableIssue(this, table, likelyDataTable);
     }
   }
@@ -4264,7 +5161,7 @@ export class smlCompliance {
         document.body);
     }
 
-    const mainContent = document.querySelector("main, [role='main'], #main, #content, #pageContentWrapper");
+    const mainContent = document.querySelector("main, [role='main'], #main, #content, #pageContentWrapper") || getCustomMainLandmarkCandidate();
     if (!mainContent) {
       this.addAlert("info", "Missing Main Content Region", 
         `Page should have a <main> element or role="main"`, document.body);
@@ -4329,18 +5226,29 @@ export class smlCompliance {
     // Check for semantic landmarks
     const hasNav = document.querySelector("nav");
     const hasMain = document.querySelector("main");
-    const hasFooter = document.querySelector("footer");
-    const hasHeader = document.querySelector("header");
-    const hasAside = document.querySelector("aside");
+    const hasNavigationRole = document.querySelector("[role='navigation']");
+    const hasMainRole = document.querySelector("[role='main']");
 
-    if (!hasNav && !document.querySelector("[role='navigation']")) {
-      this.addAlert("info", "Missing Navigation Landmark", 
-        `Page should have <nav> or role="navigation"`, document.body);
+    if (!hasNav && !hasNavigationRole) {
+      const navigationCandidate = getCustomNavigationLandmarkCandidate();
+      if (navigationCandidate) {
+        this.addAlert("info", "Custom Navigation Container Missing Landmark",
+          `This container looks like navigation but is not marked with <nav> or role="navigation".`, navigationCandidate);
+      } else {
+        this.addAlert("info", "Missing Navigation Landmark", 
+          `Page should have <nav> or role="navigation"`, document.body);
+      }
     }
 
-    if (!hasMain && !document.querySelector("[role='main']")) {
-      this.addAlert("info", "Missing Main Landmark", 
-        `Page should have <main> or role="main"`, document.body);
+    if (!hasMain && !hasMainRole) {
+      const mainCandidate = getCustomMainLandmarkCandidate();
+      if (mainCandidate) {
+        this.addAlert("info", "Custom Main Content Container Missing Landmark",
+          `This container looks like the page's primary content but is not marked with <main> or role="main".`, mainCandidate);
+      } else {
+        this.addAlert("info", "Missing Main Landmark", 
+          `Page should have <main> or role="main"`, document.body);
+      }
     }
 
     // Check for proper use of semantic elements
@@ -4460,6 +5368,8 @@ export async function runComplianceAudit(cfg = {}) {
   const compliance = new smlCompliance(cfg);
   return await compliance.runCompleteAudit();
 }
+
+export { getComplianceFixContent, getMoreInfoUrl, getPlainLanguageIssueDescription };
 
 /**
  * Global helper for development

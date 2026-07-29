@@ -51,15 +51,22 @@ Run `npm run extension:sync` to copy the shared runtime into `extension/page/` a
 
 The extension manifest is wired to those generated square icons so the browser toolbar and extension management surfaces do not rely on the original 26x18 source asset directly.
 
-Once loaded into Chrome or Edge, Tzedek runs from the browser extension UI on the current page.
+Once loaded into Chrome, Edge, or Firefox, Tzedek runs from the browser extension UI on the current page.
 
-For user distribution, publish a versioned extension zip from the `Release Extension Zip` GitHub Actions workflow using your `YYYY.MM.DD.xx` format, for example `2026.07.29.01`. Users can then download `tzedek-extension-YYYY.MM.DD.xx.zip` from the GitHub Releases page, unzip it locally, and load the extracted folder as an unpacked extension.
+For user distribution, publish a versioned extension package from the `Release Extension Zip` GitHub Actions workflow using your `YYYY.MM.DD.xx` format, for example `2026.07.29.01`. The workflow now publishes both `tzedek-extension-YYYY.MM.DD.xx.zip` for Chromium-style unpacked loading and `tzedek-firefox-YYYY.MM.DD.xx.xpi` for Firefox packaging/signing workflows.
 
 Chromium requires numeric manifest versions without leading zeroes. The release workflow keeps your exact `YYYY.MM.DD.xx` string as the GitHub release name and the extension `version_name`, and writes a normalized manifest `version` such as `2026.7.29.1` into the packaged extension.
 
+The Firefox `.xpi` artifact is structurally the same extension package with a Firefox-oriented filename. For normal Firefox distribution outside temporary loading, the package still needs Mozilla signing.
+
+The manifest is set up for current Chromium and Firefox MV3 behavior by declaring both a background service worker and a background script fallback. Firefox also includes a `gecko` extension ID and requires Firefox 121 or newer for this shared manifest shape.
+
 To test the unpacked extension manually:
 
-1. Open `chrome://extensions` or `edge://extensions`.
+1. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`.
 2. Enable Developer mode.
 3. Choose Load unpacked.
 4. Select the `extension/` folder from this repo.
+5. In Firefox, open `about:debugging#/runtime/this-firefox`.
+6. Choose Load Temporary Add-on.
+7. Select `/extension/manifest.json` from this repo.
