@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tzedek Standalone Demo</title>
+    <link rel="icon" type="image/png" href="./page/assets/Righteousness.png">
+    <link rel="apple-touch-icon" href="./page/assets/Righteousness.png">
+    <link rel="stylesheet" href="./page/assets/Tzedek.css">
+    <style>
+      :root {
+        color-scheme: light;
+        --demo-ink: #102a43;
+        --demo-muted: #486581;
+        --demo-bg: #f7f3eb;
+        --demo-paper: rgba(255, 255, 255, 0.88);
+        --demo-accent: #b45309;
+        --demo-border: rgba(16, 42, 67, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+        color: var(--demo-ink);
+        background:
+          radial-gradient(circle at top left, rgba(250, 204, 21, 0.35), transparent 34%),
+          radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.2), transparent 30%),
+          linear-gradient(145deg, #f7f3eb 0%, #e6ecf0 100%);
+      }
+
+      .demo-shell {
+        width: min(1080px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 4rem;
+      }
+
+      .hero,
+      .card {
+        background: var(--demo-paper);
+        border: 1px solid var(--demo-border);
+        border-radius: 1.1rem;
+        box-shadow: 0 1.2rem 3rem rgba(16, 42, 67, 0.1);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+      }
+
+      .hero {
+        padding: 2rem;
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .hero-brand {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .hero-mark {
+        width: clamp(5rem, 14vw, 7.5rem);
+        height: auto;
+        aspect-ratio: 26 / 18;
+        border-radius: 0.9rem;
+        object-fit: contain;
+        box-shadow: 0 0.8rem 2rem rgba(16, 42, 67, 0.18);
+        background: rgba(255, 255, 255, 0.9);
+        padding: 0.35rem;
+        display: block;
+      }
+
+      .eyebrow {
+        margin: 0;
+        font: 700 0.8rem/1.2 "Avenir Next Condensed", "Helvetica Neue", sans-serif;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--demo-accent);
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        line-height: 0.95;
+      }
+
+      h1 {
+        font-size: clamp(2.6rem, 8vw, 5.4rem);
+        font-weight: 700;
+      }
+
+      .lede {
+        margin: 0;
+        max-width: 48rem;
+        font-size: 1.1rem;
+        line-height: 1.7;
+        color: var(--demo-muted);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .actions a {
+        color: inherit;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .card {
+        padding: 1.25rem;
+      }
+
+      .card p,
+      .card li,
+      .card label,
+      .card td,
+      .card th {
+        line-height: 1.5;
+      }
+
+      .fixture-slot {
+        margin-top: 0.75rem;
+      }
+
+      .issue-button {
+        display: inline-block;
+        padding: 0.55rem 0.85rem;
+        border-radius: 0.5rem;
+        background: #facc15;
+        color: #4a044e;
+        border: none;
+      }
+
+      .fake-button {
+        display: inline-block;
+        padding: 0.55rem 0.85rem;
+        border-radius: 0.5rem;
+        background: #ede7d9;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border: 1px solid rgba(16, 42, 67, 0.18);
+        padding: 0.55rem;
+        text-align: left;
+      }
+
+      .muted-link {
+        color: #7991a6;
+      }
+
+      @media (max-width: 640px) {
+        .demo-shell {
+          width: min(100% - 1rem, 1080px);
+          padding-top: 1rem;
+        }
+
+        .hero,
+        .card {
+          border-radius: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-shell">
+      <section class="hero">
+        <div class="hero-brand">
+          <img class="hero-mark" src="./page/assets/Righteousness.png" alt="Tzedek mark">
+          <div>
+            <p class="eyebrow">Tzedek Demo</p>
+            <h1>Tzedek on a plain static page.</h1>
+          </div>
+        </div>
+        <p class="lede">
+          This page is intentionally seeded with a handful of accessibility issues so the shared runtime,
+          portable assets, and standalone stylesheet can be exercised without CATS.
+        </p>
+        <div class="actions">
+          <button type="button" class="btn btn-dark" onclick="window.launchTzedek?.()">Run Tzedek Again</button>
+          <a href="#demo-issues" class="btn btn-secondary">Jump to sample issues</a>
+        </div>
+      </section>
+
+      <div class="grid" id="demo-issues">
+        <section class="card">
+          <h2>Links and Buttons</h2>
+          <p>These fixtures are injected at runtime so the demo file stays lint-clean while Tzedek still has real problems to find.</p>
+          <div id="fixture-links-buttons" class="fixture-slot"></div>
+        </section>
+
+        <section class="card">
+          <h2>Forms and Media</h2>
+          <p>The injected block below includes an unlabeled image, unlabeled fields, and an incomplete checkbox relationship.</p>
+          <div id="fixture-forms-media" class="fixture-slot"></div>
+        </section>
+
+        <section class="card">
+          <h2>Structure</h2>
+          <p>The table fixture is rendered by script so the HTML source can remain valid while the audit still exercises table checks.</p>
+          <div id="fixture-structure" class="fixture-slot"></div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      function mountDemoFixtures() {
+        const fixtures = {
+          "fixture-links-buttons": [
+            "<p><a href='#'>Click here</a> to read a vague link example.</p>",
+            "<p><span class='fake-button' onclick=\"alert('Not semantic')\">Open settings</span></p>",
+            "<p><button type='button' class='issue-button'>Low contrast button</button></p>",
+            "<p><a class='muted-link' href='/missing-page'>Review details</a></p>"
+          ].join(""),
+          "fixture-forms-media": [
+            "<p><img src='./page/assets/smoke.png' width='160' height='100'></p>",
+            "<p><input type='text' placeholder='Search policies'></p>",
+            "<p><input type='checkbox' id='agree-demo'><span>I agree to the terms</span></p>"
+          ].join(""),
+          "fixture-structure": [
+            "<table>",
+            "<tr><td>Region</td><td>Open findings</td></tr>",
+            "<tr><td>North</td><td>12</td></tr>",
+            "<tr><td>South</td><td>7</td></tr>",
+            "</table>"
+          ].join("")
+        };
+
+        for (const [targetId, html] of Object.entries(fixtures)) {
+          const target = document.getElementById(targetId);
+          if (target) {
+            target.innerHTML = html;
+          }
+        }
+      }
+
+      window.TzedekConfig = {
+        moduleUrl: new URL("./page/smlCompliance.js", window.location.href).href,
+        assetBaseUrl: new URL("./page/assets/", window.location.href).href,
+        bootstrapIconsHref: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      };
+
+      window.launchTzedek = function launchTzedek() {
+        const existing = document.getElementById("tzedek-demo-runner");
+        if (existing) {
+          existing.remove();
+        }
+
+        const script = document.createElement("script");
+        script.id = "tzedek-demo-runner";
+        script.src = `./page/smlComplianceRunner.js?t=${Date.now()}`;
+        script.dataset.moduleUrl = window.TzedekConfig.moduleUrl;
+        document.head.appendChild(script);
+      };
+
+      mountDemoFixtures();
+      window.launchTzedek();
+    </script>
+  </body>
+</html>

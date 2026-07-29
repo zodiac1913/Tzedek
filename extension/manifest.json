@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Tzedek Accessibility Checker",
+  "version": "0.1.0",
+  "description": "Tzedek finds accessibility issues quickly. A product of the Small-Mighty-Light framework.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    },
+    "default_title": "Run Tzedek"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page/smlCompliance.js",
+        "page/smlComplianceRunner.js",
+        "page/assets/Tzedek.css",
+        "page/assets/smoke.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
