@@ -2,10 +2,10 @@
 
 Load this folder as an unpacked Chromium extension in Edge or Chrome.
 
-If you do not want to clone the repo, use the versioned zip from the GitHub Releases page instead:
+If you do not want to clone the repo, use the release zip from GitHub instead:
 
-1. Open the repo Releases page.
-2. Download the `tzedek-extension-YYYY.MM.DD.xx.zip` asset you want.
+1. Download the latest stable extension zip from `https://github.com/zodiac1913/Tzedek/releases/latest/download/Tzedek.zip`.
+2. Or open the Releases page if you specifically want an older versioned asset such as `tzedek-extension-YYYY.MM.DD.xx.zip`.
 3. Unzip it on your machine.
 4. Open the browser extensions page.
 5. Enable developer mode.

@@ -52,11 +52,13 @@ jobs:
           IFS='.' read -r year month day attempt <<< "$release_version"
           manifest_version="$year.$((10#$month)).$((10#$day)).$((10#$attempt))"
           zip_name="tzedek-extension-$release_version.zip"
+          latest_zip_name="Tzedek.zip"
           tag_name="v$release_version"
 
           echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
           echo "manifest_version=$manifest_version" >> "$GITHUB_OUTPUT"
           echo "zip_name=$zip_name" >> "$GITHUB_OUTPUT"
+          echo "latest_zip_name=$latest_zip_name" >> "$GITHUB_OUTPUT"
           echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
 
       - name: Stamp extension manifest version
@@ -94,15 +96,19 @@ jobs:
       - name: Build extension zip
         env:
           ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+          LATEST_ZIP_NAME: ${{ steps.version.outputs.latest_zip_name }}
         run: |
           cd extension
           zip -r "../$ZIP_NAME" .
+          cp "../$ZIP_NAME" "../$LATEST_ZIP_NAME"
 
       - name: Upload extension zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.version.outputs.zip_name }}
-          path: ${{ steps.version.outputs.zip_name }}
+          name: tzedek-extension-release-files
+          path: |
+            ${{ steps.version.outputs.zip_name }}
+            ${{ steps.version.outputs.latest_zip_name }}
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -110,7 +116,7 @@ jobs:
         with:
           tag: ${{ steps.version.outputs.tag_name }}
           name: Tzedek ${{ steps.version.outputs.release_version }}
-          artifacts: ${{ steps.version.outputs.zip_name }}
+          artifacts: ${{ steps.version.outputs.zip_name }},${{ steps.version.outputs.latest_zip_name }}
           artifactErrorsFailBuild: true
           allowUpdates: true
           replacesArtifacts: true
