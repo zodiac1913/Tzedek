@@ -6,6 +6,7 @@
 (function () {
   "use strict";
 
+  const TZEDEK_VERSION = "dev";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
   const CURRENT_SCRIPT_SRC = document.currentScript?.src || "";
@@ -19,6 +20,15 @@
   function getRuntimeConfig() {
     const config = globalThis.TzedekConfig;
     return config && typeof config === "object" ? config : {};
+  }
+
+  function getDisplayVersion() {
+    const configuredVersion = getRuntimeConfig().releaseVersion;
+    if (typeof configuredVersion === "string" && configuredVersion.trim().length > 0) {
+      return configuredVersion.trim();
+    }
+
+    return TZEDEK_VERSION;
   }
 
   function resolveModuleUrl() {
@@ -522,6 +532,7 @@
       "#" + PANEL_ID + "{position:relative;z-index:2147483646;background:#f8fafc;border:2px solid #0f172a;border-radius:10px;padding:0.75rem 1rem;margin:0.5rem;box-shadow:0 8px 20px rgba(15,23,42,0.2);font-family:Arial,Helvetica,sans-serif;color:#0f172a;}",
       "#" + PANEL_ID + " .smlc-headline{display:flex !important;justify-content:space-between !important;align-items:center !important;gap:0.6rem;flex-wrap:nowrap !important;white-space:nowrap;width:100%;overflow-x:auto;}",
       "#" + PANEL_ID + " .smlc-headline-main{display:flex !important;align-items:center !important;gap:0.45rem;flex-wrap:nowrap !important;flex:0 1 auto;min-width:0;}",
+      "#" + PANEL_ID + " .smlc-version{display:inline-flex;align-items:center;justify-content:center;padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #94a3b8;background:#e2e8f0;color:#334155;font-size:0.78rem;font-weight:700;}",
       "#" + PANEL_ID + " .smlc-toggle-btn,#" + PANEL_ID + " .smlc-refresh-btn{border:1px solid #334155;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.875rem;font-weight:700;cursor:pointer;min-height:31px;}",
       "#" + PANEL_ID + " .smlc-toggle-btn{background:#fff !important;color:#0f172a !important;}",
       "#" + PANEL_ID + " .smlc-refresh-btn{display:inline-flex;align-items:center;justify-content:center;min-width:31px;background:#bae6fd !important;color:#082f49 !important;line-height:1;font-size:1.75rem;box-shadow:0 0.35rem 0.9rem rgba(125,211,252,0.45);}",
@@ -581,6 +592,7 @@
 
     const issues = buildIssueRecords(report.alerts);
     const total = Number(report.total || 0);
+    const displayVersion = getDisplayVersion();
 
     const issuesHtml = issues.map(issue => {
       const jumpLink = issue.targetId
@@ -605,6 +617,7 @@
     panel.innerHTML = [
       "<div class='smlc-headline'>",
       "<div class='smlc-headline-main'>",
+      "<span class='smlc-version' aria-label='Tzedek version'>v" + escapeHtml(displayVersion) + "</span>",
       "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='smlc-issues-body'>See all issues (" + total + ")</button>",
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
       "</div>",

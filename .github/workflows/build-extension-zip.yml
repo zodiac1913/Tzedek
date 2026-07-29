@@ -1,0 +1,122 @@
+name: Release Extension Zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release version in YYYY.MM.DD.xx format
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-extension-zip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate and normalize release version
+        id: version
+        env:
+          INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ -n "$INPUT_RELEASE_VERSION" ]]; then
+            release_version="$INPUT_RELEASE_VERSION"
+          else
+            release_version="${GITHUB_REF_NAME#v}"
+          fi
+
+          if [[ -z "$release_version" ]]; then
+            echo "Release version is required."
+            exit 1
+          fi
+
+          if [[ ! "$release_version" =~ ^[0-9]{4}\.(0[1-9]|1[0-2])\.(0[1-9]|[12][0-9]|3[01])\.[0-9]{2}$ ]]; then
+            echo "Release version must match YYYY.MM.DD.xx, for example 2026.07.29.01"
+            exit 1
+          fi
+
+          IFS='.' read -r year month day attempt <<< "$release_version"
+          manifest_version="$year.$((10#$month)).$((10#$day)).$((10#$attempt))"
+          zip_name="tzedek-extension-$release_version.zip"
+          tag_name="v$release_version"
+
+          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
+          echo "manifest_version=$manifest_version" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$zip_name" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp extension manifest version
+        env:
+          MANIFEST_VERSION: ${{ steps.version.outputs.manifest_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const manifestPath = 'extension/manifest.json';
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          manifest.version = process.env.MANIFEST_VERSION;
+          manifest.version_name = process.env.RELEASE_VERSION;
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+          EOF
+
+      - name: Stamp runtime release version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const runnerPath = 'src/runtime/smlComplianceRunner.js';
+          const source = fs.readFileSync(runnerPath, 'utf8');
+          const next = source.replace(/const TZEDEK_VERSION = ".*?";/, `const TZEDEK_VERSION = "${process.env.RELEASE_VERSION}";`);
+          if (next === source) {
+            throw new Error('Failed to stamp TZEDEK_VERSION in smlComplianceRunner.js');
+          }
+          fs.writeFileSync(runnerPath, next);
+          EOF
+
+      - name: Sync extension bundle
+        run: npm run extension:sync
+
+      - name: Build extension zip
+        env:
+          ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+        run: |
+          cd extension
+          zip -r "../$ZIP_NAME" .
+
+      - name: Upload extension zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.zip_name }}
+          path: ${{ steps.version.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.version.outputs.tag_name }}
+          name: Tzedek ${{ steps.version.outputs.release_version }}
+          artifacts: ${{ steps.version.outputs.zip_name }}
+          artifactErrorsFailBuild: true
+          allowUpdates: true
+          replacesArtifacts: true
+          generateReleaseNotes: true
+          makeLatest: true

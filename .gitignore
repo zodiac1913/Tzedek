@@ -1,5 +1,6 @@
 node_modules/
 dist/
+tzedek-extension*.zip
 .DS_Store
 .AppleDouble
 .LSOverride

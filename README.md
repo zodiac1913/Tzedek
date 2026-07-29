@@ -38,10 +38,10 @@ Run `npm run demo:sync` to copy the shared runtime and assets into `demo/page/`.
 Then serve the repo with any static web server and open `demo/index.html`. Example:
 
 ```sh
-python3 -m http.server 4173
+python3 -m http.server 4183
 ```
 
-Open `http://localhost:4173/demo/` to exercise Tzedek against the intentionally imperfect demo page.
+Open `http://localhost:4183/demo/` to exercise Tzedek against the intentionally imperfect demo page.
 
 The demo is a development surface. It exists to validate the shared runtime and UI outside the extension flow.
 
@@ -52,6 +52,10 @@ Run `npm run extension:sync` to copy the shared runtime into `extension/page/` a
 The extension manifest is wired to those generated square icons so the browser toolbar and extension management surfaces do not rely on the original 26x18 source asset directly.
 
 Once loaded into Chrome or Edge, Tzedek runs from the browser extension UI on the current page.
+
+For user distribution, publish a versioned extension zip from the `Release Extension Zip` GitHub Actions workflow using your `YYYY.MM.DD.xx` format, for example `2026.07.29.01`. Users can then download `tzedek-extension-YYYY.MM.DD.xx.zip` from the GitHub Releases page, unzip it locally, and load the extracted folder as an unpacked extension.
+
+Chromium requires numeric manifest versions without leading zeroes. The release workflow keeps your exact `YYYY.MM.DD.xx` string as the GitHub release name and the extension `version_name`, and writes a normalized manifest `version` such as `2026.7.29.1` into the packaged extension.
 
 To test the unpacked extension manually:
 

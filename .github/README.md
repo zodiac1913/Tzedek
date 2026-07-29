@@ -1,0 +1,1 @@
+This folder contains GitHub Actions and related repository automation for Tzedek.
