@@ -220,6 +220,48 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Make sure the label describes the action, not just the control type."
     ]
   },
+  "Button Role Missing Keyboard Handler": {
+    overview: "This finding appears when a custom control uses button semantics but does not reliably activate with Enter and Space.",
+    whyItMatters: [
+      "Keyboard users expect button behavior to work with standard keys, not only pointer clicks.",
+      "Missing key activation can block critical actions for users who cannot use a mouse or trackpad.",
+      "Screen reader and voice users are more likely to rely on native keyboard patterns to complete actions." 
+    ],
+    reviewChecklist: [
+      "Prefer a native button element for page actions whenever possible.",
+      "If role=button is kept, support Enter and Space consistently and prevent unwanted page scroll on Space.",
+      "Validate runtime listeners in DevTools, and check delegated handlers on ancestors, document, and window.",
+      "Remember that static scans may still flag custom controls even when runtime behavior is correct; use a native button or a documented waiver pattern where required."
+    ]
+  },
+  "Button Role Not Focusable": {
+    overview: "This finding appears when a custom button-like control cannot be reached with normal keyboard tab navigation.",
+    whyItMatters: [
+      "If the control cannot receive focus, many users cannot discover or activate it at all.",
+      "Focusable controls are a prerequisite for predictable keyboard interaction and assistive technology use.",
+      "Focusability and key handling must both be present for a custom button pattern to be usable."
+    ],
+    reviewChecklist: [
+      "Prefer a native button element for actions to get built-in focus and activation behavior.",
+      "If role=button is kept, add tabindex=0 and test keyboard focus order in the real UI.",
+      "Verify where listeners are attached at runtime, including delegated listeners on ancestors.",
+      "When static scanners and runtime behavior disagree, prioritize native controls or use approved exception documentation."
+    ]
+  },
+  "Button Role Keyboard Handler Not Statically Verifiable": {
+    overview: "This finding appears when static markup does not show keyboard handlers for a custom button pattern, but runtime delegation or component internals may still provide support.",
+    whyItMatters: [
+      "Static checks cannot always see delegated or framework-managed keyboard handlers.",
+      "Users still need predictable Enter and Space activation for button behavior.",
+      "A runtime verification step prevents both false confidence and false alarms."
+    ],
+    reviewChecklist: [
+      "Inspect runtime listeners in DevTools with getEventListeners on the control and its ancestors.",
+      "Verify both Enter and Space activate the same action without side effects.",
+      "Confirm keyboard focus can reach the control before activation tests.",
+      "Prefer a native button when possible to satisfy both runtime behavior and static rule expectations."
+    ]
+  },
   "Form Should Be Labeled": {
     overview: "This finding appears when a form region has no dependable accessible name describing what the form is for.",
     whyItMatters: [

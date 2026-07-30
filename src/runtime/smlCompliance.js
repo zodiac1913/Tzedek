@@ -101,6 +101,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Button Missing Text": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button",
   "Button Role Missing Keyboard Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Button Role Not Focusable": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
+  "Button Role Keyboard Handler Not Statically Verifiable": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Anchor Uses Button Role": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
   "Disabled State Not Announced": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-disabled",
   "Icon-Only Button Missing Label": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
@@ -192,6 +193,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Button Missing Text": "HTML button accessibility",
   "Button Role Missing Keyboard Handler": "custom button keyboard accessibility",
   "Button Role Not Focusable": "custom button focus accessibility",
+  "Button Role Keyboard Handler Not Statically Verifiable": "custom element delegated keyboard handler accessibility",
   "Anchor Uses Button Role": "HTML anchor button role accessibility",
   "Disabled State Not Announced": "aria-disabled accessibility",
   "Icon-Only Button Missing Label": "icon button aria-label accessibility",
@@ -2153,8 +2155,8 @@ function buildSemanticControlFixSuggestions(title, element) {
     const visibleText = escapeHtml(getVisibleControlText(element) || "Visible control text");
     return [
       {
-        heading: "Keep the visible text inside the accessible name",
-        code: `<a href="/target" aria-label="${visibleText}">${visibleText}</a>`
+        heading: "Keep one visible label source and match the accessible name",
+        code: `<button type="button" aria-label="${visibleText}">\n  <i class="bi bi-play-circle" aria-hidden="true"></i>\n  <span>${visibleText}</span>\n</button>`
       },
       {
         heading: "Add extra context after the visible label when needed",
@@ -2163,15 +2165,19 @@ function buildSemanticControlFixSuggestions(title, element) {
     ];
   }
 
-  if (title === "Button Role Missing Keyboard Handler") {
+  if (title === "Button Role Missing Keyboard Handler" || title === "Button Role Keyboard Handler Not Statically Verifiable") {
     return [
       {
         heading: "Prefer a native button",
-        code: `<button type="button" onclick="openDetails()">Open details</button>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
       },
       {
         heading: "If you keep role=button, add keyboard activation",
-        code: `<div role="button" tabindex="0" onclick="openDetails()" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openDetails(); }">Open details</div>`
+        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n<\/script>`
+      },
+      {
+        heading: "Verify runtime key handlers (including delegated listeners)",
+        code: `const el = document.querySelector('[role="button"]');\nconst direct = getEventListeners(el);\nconst keyFns = (direct.keydown || []).map(x => x.listener.toString()).join('\\n');\nconst hasEnter = keyFns.includes('Enter');\nconst hasSpace = keyFns.includes(' ') || keyFns.includes('Spacebar');\n\nfunction listenersUp(node) {\n  const out = [];\n  let cur = node;\n  while (cur) {\n    out.push({ node: cur, listeners: getEventListeners(cur) });\n    cur = cur.parentElement;\n  }\n  out.push({ node: document, listeners: getEventListeners(document) });\n  out.push({ node: window, listeners: getEventListeners(window) });\n  return out;\n}\n\n({ hasEnter, hasSpace, direct, delegatedChain: listenersUp(el) });`
       }
     ];
   }
@@ -2180,11 +2186,15 @@ function buildSemanticControlFixSuggestions(title, element) {
     return [
       {
         heading: "Prefer a native button",
-        code: `<button type="button" onclick="openDetails()">Open details</button>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
       },
       {
         heading: "If you keep role=button, make it keyboard reachable",
-        code: `<div role="button" tabindex="0" onclick="openDetails()" onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); openDetails(); }">Open details</div>`
+        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n<\/script>`
+      },
+      {
+        heading: "Confirm focusability and delegated handling at runtime",
+        code: `const el = document.querySelector('[role="button"]');\n({\n  tabIndex: el?.tabIndex,\n  canReceiveFocus: !!el && el.tabIndex >= 0\n});\n\n// If listeners are delegated, inspect ancestors too.\nfunction listenersUp(node) {\n  const out = [];\n  let cur = node;\n  while (cur) {\n    out.push({ node: cur, listeners: getEventListeners(cur) });\n    cur = cur.parentElement;\n  }\n  out.push({ node: document, listeners: getEventListeners(document) });\n  out.push({ node: window, listeners: getEventListeners(window) });\n  return out;\n}\nlistenersUp(el);`
       }
     ];
   }
@@ -2193,7 +2203,7 @@ function buildSemanticControlFixSuggestions(title, element) {
     return [
       {
         heading: "Use a real button for page actions",
-        code: `<button type="button" onclick="openDetails()">Open details</button>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
       },
       {
         heading: "Use a real link for navigation",
@@ -2210,7 +2220,7 @@ function buildSemanticControlFixSuggestions(title, element) {
       },
       {
         heading: "Use a real button when the control triggers page behavior",
-        code: `<button type="button" onclick="openDetails()">Open details</button>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
       }
     ];
   }
@@ -2918,7 +2928,15 @@ function getInputFixContent(normalizedTitle, element) {
 }
 
 function getSemanticControlFixContent(normalizedTitle, element) {
-  if (!["Non-Semantic Button", "Anchor Uses Button Role", "Non-Semantic Link", "Non-Standard Click Handler", "Button Role Missing Keyboard Handler", "Button Role Not Focusable", "Accessible Name Does Not Include Visible Label"].includes(normalizedTitle)) {
+  if (normalizedTitle === "Accessible Name Does Not Include Visible Label") {
+    return {
+      heading: "Suggested Fix: Keep the visible words in the accessible name",
+      description: "Assistive technology should announce the same visible words users rely on. Keep one visible label source and ensure the computed accessible name includes that exact text.",
+      snippets: buildSemanticControlFixSuggestions(normalizedTitle, element)
+    };
+  }
+
+  if (!["Non-Semantic Button", "Anchor Uses Button Role", "Non-Semantic Link", "Non-Standard Click Handler", "Button Role Missing Keyboard Handler", "Button Role Not Focusable", "Button Role Keyboard Handler Not Statically Verifiable"].includes(normalizedTitle)) {
     return null;
   }
 
@@ -3306,6 +3324,7 @@ function getPlainLanguageIssueDescription(title) {
     "Non-Standard Click Handler": "This element reacts to mouse clicks, but it is not exposed as a normal button or link. Keyboard and screen reader support may be incomplete.",
     "Button Role Missing Keyboard Handler": "This custom button can be clicked, but it does not fully support normal keyboard actions like Enter or Space.",
     "Button Role Not Focusable": "This custom button cannot be reached with normal keyboard tabbing, so some users may not be able to use it at all.",
+    "Button Role Keyboard Handler Not Statically Verifiable": "This custom component uses button semantics, but keyboard handling is not visible in static markup. Verify Enter/Space support at runtime, especially when listeners are delegated.",
     "Invalid Input Not Described": "This field is marked as invalid, but its error message is not tied to the field. Screen readers may not say what is wrong.",
     "Iframe Missing Title": "This frame has no title, so users are not told what it contains before they move into it.",
     "Iframe Title Too Generic": "This frame has a title, but it is too generic to tell users what the embedded content actually is.",
@@ -4325,6 +4344,36 @@ export class smlCompliance {
       await check();
     }
 
+    // Final safety normalization: never keep hard missing-keyboard warnings
+    // on custom role=button elements when runtime evidence suggests delegated/component wiring.
+    this.alerts = this.alerts.map((alert) => {
+      const element = alert?.element;
+      if (!(element instanceof Element)) return alert;
+
+      const isCustomRoleButton =
+        String(element.tagName || "").includes("-")
+        && String(element.getAttribute("role") || "").trim().toLowerCase() === "button";
+
+      const hasKeyboardEvidence =
+        String(element.getAttribute("data-tzedek-cdp-keyboard-evidence") || "").toLowerCase() === "true"
+        || String(element.getAttribute("data-wcag-key-down") || "").trim() === "1"
+        || String(element.getAttribute("data-wcag-keyboard") || "").toLowerCase() === "true";
+
+      if (isCustomRoleButton && alert?.title === "Button Role Missing Keyboard Handler") {
+        return {
+          ...alert,
+          level: "info",
+          title: "Button Role Keyboard Handler Not Statically Verifiable",
+          message: hasKeyboardEvidence
+            ? `${element.tagName} uses role="button" and exposes keyboard wiring evidence. Static checks can still miss delegated implementations; verify Enter/Space behavior at runtime in DevTools.`
+            : `${element.tagName} uses role="button" and may use delegated or component-managed keyboard handling that static checks cannot directly confirm. Verify Enter/Space support at runtime in DevTools, or prefer a native <button>.`,
+          plainDescription: getPlainLanguageIssueDescription("Button Role Keyboard Handler Not Statically Verifiable")
+        };
+      }
+
+      return alert;
+    });
+
     return {
       total: this.alerts.length,
       critical: this.alerts.filter(a => a.level === "critical").length,
@@ -4952,6 +5001,92 @@ export class smlCompliance {
    * Check keyboard navigation
    */
   checkKeyboardNavigation() {
+    const hasDeclarativeKeyboardBindingHint = (element) => {
+      const attributeNames = typeof element.getAttributeNames === "function" ? element.getAttributeNames() : [];
+      return attributeNames.some((name) => /^(?:\(key(?:down|up|press)\)|@key(?:down|up|press)|v-on:key(?:down|up|press)|x-on:key(?:down|up|press))$/i.test(String(name || "")));
+    };
+
+    const hasDomPropertyKeyboardHandler = (element) => (
+      typeof element.onkeydown === "function"
+      || typeof element.onkeyup === "function"
+      || typeof element.onkeypress === "function"
+    );
+
+    const hasReactKeyboardPropHint = (element) => {
+      const ownKeys = Object.keys(element || {});
+      for (const key of ownKeys) {
+        if (!String(key).startsWith("__reactProps$")) continue;
+        const props = element[key];
+        if (!props || typeof props !== "object") continue;
+        if (typeof props.onKeyDown === "function" || typeof props.onKeyUp === "function" || typeof props.onKeyPress === "function") {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const hasVueKeyboardPropHint = (element) => {
+      const vnodeProps = element?.__vnode?.props;
+      if (vnodeProps && (typeof vnodeProps.onKeydown === "function" || typeof vnodeProps.onKeyup === "function" || typeof vnodeProps.onKeypress === "function")) {
+        return true;
+      }
+
+      const parentVNodeProps = element?.__vueParentComponent?.vnode?.props;
+      if (parentVNodeProps && (typeof parentVNodeProps.onKeydown === "function" || typeof parentVNodeProps.onKeyup === "function" || typeof parentVNodeProps.onKeypress === "function")) {
+        return true;
+      }
+
+      return false;
+    };
+
+    const hasDebuggerKeyboardEvidence = (element) => {
+      return String(element.getAttribute("data-tzedek-cdp-keyboard-evidence") || "").toLowerCase() === "true";
+    };
+
+    const hasAuthorWcagKeyboardTagHint = (element) => {
+      const attributeNames = typeof element.getAttributeNames === "function" ? element.getAttributeNames() : [];
+      return attributeNames.some((name) => {
+        const normalizedName = String(name || "").trim().toLowerCase();
+        const value = String(element.getAttribute(name) || "").trim().toLowerCase();
+        const mentionsWcag = /wcag/.test(normalizedName);
+        const mentionsKeyboard = /(keyboard|key(?:down|up|press)|enter|space)/.test(`${normalizedName} ${value}`);
+        const declaresHandled = value === "" || /^(?:1|true|yes|handled|supported|pass|ok|wired)$/.test(value);
+        return mentionsWcag && mentionsKeyboard && declaresHandled;
+      });
+    };
+
+    const hasShadowKeyboardOrNativeControlHint = (element) => {
+      const root = element?.shadowRoot;
+      if (!(root instanceof ShadowRoot)) return false;
+
+      if (root.querySelector("button:not([disabled]), input[type='button']:not([disabled]), input[type='submit']:not([disabled]), input[type='reset']:not([disabled]), a[href], [role='button'][tabindex]:not([tabindex='-1'])")) {
+        return true;
+      }
+
+      const candidates = Array.from(root.querySelectorAll("*"));
+      for (const candidate of candidates) {
+        const attributeNames = typeof candidate.getAttributeNames === "function" ? candidate.getAttributeNames() : [];
+        if (attributeNames.some((name) => /^(?:\(key(?:down|up|press)\)|@key(?:down|up|press)|v-on:key(?:down|up|press)|x-on:key(?:down|up|press))$/i.test(String(name || "")))) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const hasKeyboardHandlerEvidence = (element) => (
+      hasDebuggerKeyboardEvidence(element)
+      ||
+      hasAuthorWcagKeyboardTagHint(element)
+      ||
+      hasDeclarativeKeyboardBindingHint(element)
+      || hasDomPropertyKeyboardHandler(element)
+      || hasReactKeyboardPropHint(element)
+      || hasVueKeyboardPropHint(element)
+      || hasShadowKeyboardOrNativeControlHint(element)
+    );
+    const isCustomElementName = (element) => String(element.tagName || "").includes("-");
+
     // Check for visible onclick handlers that still rely on custom semantics.
     const onClickElements = Array.from(document.querySelectorAll("[onclick]"));
     for (const elem of onClickElements) {
@@ -4965,7 +5100,12 @@ export class smlCompliance {
       }
 
       const role = String(elem.getAttribute("role") || "").trim().toLowerCase();
-      const hasKeyboardHandler = elem.hasAttribute("onkeydown") || elem.hasAttribute("onkeyup") || elem.hasAttribute("onkeypress");
+      if (role === "button") {
+        // Role=button elements are evaluated in the dedicated custom-role pass below.
+        continue;
+      }
+
+      const hasKeyboardHandler = hasKeyboardHandlerEvidence(elem);
       const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
 
       if (role === "button" && hasKeyboardHandler && hasTabStop) {
@@ -4980,15 +5120,18 @@ export class smlCompliance {
           guidance, elem);
     }
 
-    const customRoleButtons = Array.from(document.querySelectorAll("[role='button']"))
+    const roleButtons = Array.from(document.querySelectorAll("[role='button']"))
       .filter((element) => !isSmlcOwnedElement(element))
       .filter((element) => !isHiddenFromAllUsers(element))
       .filter((element) => element.tagName !== "BUTTON")
       .filter((element) => !(element.tagName === "INPUT" && ["button", "submit", "reset", "image"].includes(String(element.getAttribute("type") || "").toLowerCase())))
       .filter((element) => !(element.tagName === "A" && element.hasAttribute("href")));
 
+    const customRoleButtons = roleButtons.filter((element) => !isCustomElementName(element));
+    const customElementRoleButtons = roleButtons.filter((element) => isCustomElementName(element));
+
     for (const elem of customRoleButtons) {
-      const hasKeyboardHandler = elem.hasAttribute("onkeydown") || elem.hasAttribute("onkeyup") || elem.hasAttribute("onkeypress");
+      const hasKeyboardHandler = hasKeyboardHandlerEvidence(elem);
       const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
 
       if (!hasTabStop) {
@@ -4999,6 +5142,20 @@ export class smlCompliance {
       if (!hasKeyboardHandler) {
         this.addAlert("warning", "Button Role Missing Keyboard Handler",
           `${elem.tagName} uses role="button" but does not expose Enter/Space keyboard handling. Use a native <button> or add keyboard support`, elem);
+      }
+    }
+
+    for (const elem of customElementRoleButtons) {
+      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
+      if (!hasTabStop) {
+        this.addAlert("warning", "Button Role Not Focusable",
+          `${elem.tagName} uses role="button" but is not keyboard focusable. Add tabindex="0" or use a native <button>`, elem);
+      }
+
+      const hasKeyboardHandler = hasKeyboardHandlerEvidence(elem);
+      if (!hasKeyboardHandler) {
+        this.addAlert("info", "Button Role Keyboard Handler Not Statically Verifiable",
+          `${elem.tagName} uses role="button" without detectable keyboard-handler evidence in static markup. This can be valid when key handling is delegated or encapsulated by a component. Verify Enter/Space support at runtime in DevTools, or prefer a native <button>.`, elem);
       }
     }
 
@@ -5284,10 +5441,25 @@ export class smlCompliance {
   addAlert(level, title, message, element = null) {
     if (element instanceof Element && isSmlcOwnedElement(element)) return;
 
-    this.alerts.push({ level, title, message, element, plainDescription: getPlainLanguageIssueDescription(title) });
+    let normalizedLevel = level;
+    let normalizedTitle = title;
+    let normalizedMessage = message;
+
+    if (
+      title === "Button Role Missing Keyboard Handler"
+      && element instanceof Element
+      && String(element.tagName || "").includes("-")
+      && String(element.getAttribute("role") || "").trim().toLowerCase() === "button"
+    ) {
+      normalizedLevel = "info";
+      normalizedTitle = "Button Role Keyboard Handler Not Statically Verifiable";
+      normalizedMessage = `${element.tagName} uses role="button" and may use delegated or component-managed keyboard handling that static checks cannot directly confirm. Verify Enter/Space support at runtime in DevTools, or prefer a native <button>.`;
+    }
+
+    this.alerts.push({ level: normalizedLevel, title: normalizedTitle, message: normalizedMessage, element, plainDescription: getPlainLanguageIssueDescription(normalizedTitle) });
 
     if (this.cfg.showAlerts && element) {
-      createComplianceAlert(level, title, message, element);
+      createComplianceAlert(normalizedLevel, normalizedTitle, normalizedMessage, element);
     }
   }
 
