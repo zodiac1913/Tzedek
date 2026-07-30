@@ -4359,14 +4359,45 @@ export class smlCompliance {
         || String(element.getAttribute("data-wcag-key-down") || "").trim() === "1"
         || String(element.getAttribute("data-wcag-keyboard") || "").toLowerCase() === "true";
 
+      const hasNearbyKeyboardTagEvidence = (() => {
+        let cursor = element;
+        for (let depth = 0; depth < 8 && cursor; depth += 1) {
+          const attributeNames = typeof cursor.getAttributeNames === "function" ? cursor.getAttributeNames() : [];
+          const found = attributeNames.some((name) => {
+            const normalizedName = String(name || "").trim().toLowerCase();
+            const value = String(cursor.getAttribute(name) || "").trim().toLowerCase();
+            const mentionsWcag = /(wcag|sml)/.test(normalizedName);
+            const mentionsKeyboard = /(keyboard|key(?:down|up|press)|enter|space)/.test(`${normalizedName} ${value}`);
+            const declaresHandled = value === "" || /^(?:1|true|yes|handled|supported|pass|ok|wired)$/.test(value);
+            return mentionsWcag && mentionsKeyboard && declaresHandled;
+          });
+          if (found) return true;
+          cursor = cursor.parentElement;
+        }
+        return false;
+      })();
+
       if (isCustomRoleButton && alert?.title === "Button Role Missing Keyboard Handler") {
         return {
           ...alert,
           level: "info",
           title: "Button Role Keyboard Handler Not Statically Verifiable",
-          message: hasKeyboardEvidence
+          message: (hasKeyboardEvidence || hasNearbyKeyboardTagEvidence)
             ? `${element.tagName} uses role="button" and exposes keyboard wiring evidence. Static checks can still miss delegated implementations; verify Enter/Space behavior at runtime in DevTools.`
             : `${element.tagName} uses role="button" and may use delegated or component-managed keyboard handling that static checks cannot directly confirm. Verify Enter/Space support at runtime in DevTools, or prefer a native <button>.`,
+          plainDescription: getPlainLanguageIssueDescription("Button Role Keyboard Handler Not Statically Verifiable")
+        };
+      }
+
+      if (
+        alert?.title === "Button Role Missing Keyboard Handler"
+        && (hasKeyboardEvidence || hasNearbyKeyboardTagEvidence)
+      ) {
+        return {
+          ...alert,
+          level: "info",
+          title: "Button Role Keyboard Handler Not Statically Verifiable",
+          message: `${element.tagName} uses role="button" and exposes keyboard wiring evidence. Static checks can still miss delegated implementations; verify Enter/Space behavior at runtime in DevTools.`,
           plainDescription: getPlainLanguageIssueDescription("Button Role Keyboard Handler Not Statically Verifiable")
         };
       }
@@ -5001,6 +5032,35 @@ export class smlCompliance {
    * Check keyboard navigation
    */
   checkKeyboardNavigation() {
+    const hasWcagKeyboardTagHintOnNode = (element) => {
+      if (!(element instanceof Element)) return false;
+      const attributeNames = typeof element.getAttributeNames === "function" ? element.getAttributeNames() : [];
+      return attributeNames.some((name) => {
+        const normalizedName = String(name || "").trim().toLowerCase();
+        const value = String(element.getAttribute(name) || "").trim().toLowerCase();
+        const mentionsWcag = /(wcag|sml)/.test(normalizedName);
+        const mentionsKeyboard = /(keyboard|key(?:down|up|press)|enter|space)/.test(`${normalizedName} ${value}`);
+        const declaresHandled = value === "" || /^(?:1|true|yes|handled|supported|pass|ok|wired)$/.test(value);
+        return mentionsWcag && mentionsKeyboard && declaresHandled;
+      });
+    };
+
+    const hasWcagKeyboardTagHintInAncestors = (element) => {
+      let cursor = element;
+      for (let depth = 0; depth < 8 && cursor; depth += 1) {
+        if (hasWcagKeyboardTagHintOnNode(cursor)) return true;
+        cursor = cursor.parentElement;
+      }
+
+      const rootNode = element?.getRootNode?.();
+      const host = rootNode instanceof ShadowRoot ? rootNode.host : null;
+      if (host && hasWcagKeyboardTagHintOnNode(host)) {
+        return true;
+      }
+
+      return false;
+    };
+
     const hasDeclarativeKeyboardBindingHint = (element) => {
       const attributeNames = typeof element.getAttributeNames === "function" ? element.getAttributeNames() : [];
       return attributeNames.some((name) => /^(?:\(key(?:down|up|press)\)|@key(?:down|up|press)|v-on:key(?:down|up|press)|x-on:key(?:down|up|press))$/i.test(String(name || "")));
@@ -5044,15 +5104,7 @@ export class smlCompliance {
     };
 
     const hasAuthorWcagKeyboardTagHint = (element) => {
-      const attributeNames = typeof element.getAttributeNames === "function" ? element.getAttributeNames() : [];
-      return attributeNames.some((name) => {
-        const normalizedName = String(name || "").trim().toLowerCase();
-        const value = String(element.getAttribute(name) || "").trim().toLowerCase();
-        const mentionsWcag = /wcag/.test(normalizedName);
-        const mentionsKeyboard = /(keyboard|key(?:down|up|press)|enter|space)/.test(`${normalizedName} ${value}`);
-        const declaresHandled = value === "" || /^(?:1|true|yes|handled|supported|pass|ok|wired)$/.test(value);
-        return mentionsWcag && mentionsKeyboard && declaresHandled;
-      });
+      return hasWcagKeyboardTagHintInAncestors(element);
     };
 
     const hasShadowKeyboardOrNativeControlHint = (element) => {
