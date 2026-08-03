@@ -262,6 +262,19 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Prefer a native button when possible to satisfy both runtime behavior and static rule expectations."
     ]
   },
+  "Duplicate SR-Only Button Label": {
+    overview: "This finding appears when a non-icon sml-reactive-button renders the same label twice: once as visible button text and again as screen-reader-only text.",
+    whyItMatters: [
+      "This is a real component defect, not just a style choice, because the button is rendering duplicate label sources for one control.",
+      "Non-icon buttons should expose one label source so the DOM stays simpler and less fragile during rendering and hydration.",
+      "If the source already renders only one label source but the browser DOM still shows both, the client may be running stale JavaScript or stale hydrated markup."
+    ],
+    reviewChecklist: [
+      "Confirm the button is a non-icon sml-reactive-button, not an icon-only button that still needs a programmatic name.",
+      "Remove the duplicate screen-reader-only label or the duplicate visible label so only one source remains for the non-icon button text.",
+      "If the component source already does that, refresh or rebuild the client bundle before concluding the component is still broken."
+    ]
+  },
   "Form Should Be Labeled": {
     overview: "This finding appears when a form region has no dependable accessible name describing what the form is for.",
     whyItMatters: [
