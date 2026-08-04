@@ -189,7 +189,9 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Large headers, banners, and app shells make this shortcut more important, not less."
     ],
     reviewChecklist: [
-      "Add a skip link near the start of the page that moves focus to the main content region.",
+      "Prefer a native main element with a stable id such as maincontent.",
+      "Add a skip link near the start of the page that points to that main element id, such as href=#maincontent.",
+      "If older markup cannot use a native main element, use role=main on the main content container and give it the same target id.",
       "Make sure the link becomes visible when focused and actually works from the keyboard.",
       "Verify that the target is a real main region or another dependable landing point."
     ]

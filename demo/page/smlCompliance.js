@@ -199,6 +199,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Empty List": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/ul",
   "Invalid List Content": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/li",
   "Motion Not Reduced": "https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion",
+  "No Main Content": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main",
   "Missing Main Content Region": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main",
   "Missing Error Message Element": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-describedby",
   "Missing Navigation Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/navigation_role",
@@ -297,6 +298,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Empty List": "HTML list accessibility",
   "Invalid List Content": "HTML ul ol li accessibility",
   "Motion Not Reduced": "prefers reduced motion accessibility",
+  "No Main Content": "main landmark accessibility",
   "Missing Main Content Region": "main landmark accessibility",
   "Missing Error Message Element": "form error message accessibility",
   "Invalid aria-live Value": "aria-live accessibility",
@@ -1962,11 +1964,11 @@ function buildHeadingFixSuggestions(title) {
     return [
       {
         heading: "Native heading example",
-        code: `<main id="pageContentWrapper">\n  <h1>${pageTitle}</h1>\n  ...\n</main>`
+        code: `<main id="maincontent">\n  <h1>${pageTitle}</h1>\n  ...\n</main>`
       },
       {
         heading: "ARIA heading example",
-        code: `<main id="pageContentWrapper">\n  <div role="heading" aria-level="1">${pageTitle}</div>\n  ...\n</main>`
+        code: `<main id="maincontent">\n  <div role="heading" aria-level="1">${pageTitle}</div>\n  ...\n</main>`
       }
     ];
   }
@@ -2104,11 +2106,11 @@ function buildMainLandmarkFixSuggestions() {
   return [
     {
       heading: "Use a native main landmark",
-      code: `<main id="pageContentWrapper">\n  ...\n</main>`
+      code: `<main id="maincontent">\n  ...\n</main>`
     },
     {
       heading: "Fallback role main example",
-      code: `<div id="pageContentWrapper" role="main">\n  ...\n</div>`
+      code: `<div id="maincontent" role="main">\n  ...\n</div>`
     }
   ];
 }
@@ -2116,12 +2118,12 @@ function buildMainLandmarkFixSuggestions() {
 function buildSkipLinkFixSuggestions() {
   return [
     {
-      heading: "Skip link plus main target",
-      code: `<a href="#pageContentWrapper" class="visually-hidden-focusable">Skip to main content</a>\n<main id="pageContentWrapper">\n  ...\n</main>`
+      heading: "Preferred: skip link to a native main element",
+      code: `<a href="#maincontent" class="visually-hidden-focusable">Skip to main content</a>\n<main id="maincontent">\n  ...\n</main>`
     },
     {
-      heading: "Role main fallback with skip target",
-      code: `<a href="#pageContentWrapper" class="visually-hidden-focusable">Skip to main content</a>\n<div id="pageContentWrapper" role="main">\n  ...\n</div>`
+      heading: "Fallback: role main with an explicit target id",
+      code: `<a href="#maincontent" class="visually-hidden-focusable">Skip to main content</a>\n<div id="maincontent" role="main">\n  ...\n</div>`
     }
   ];
 }
@@ -2188,6 +2190,75 @@ function getCustomMainLandmarkCandidate() {
     const contentBlockCount = element.querySelectorAll("p, section, article, table, form, ul, ol").length;
     return hasHeading && contentBlockCount >= 2;
   }) || null;
+}
+
+function getDeclaredMainContentRegion() {
+  return document.querySelector("main, [role='main']") || null;
+}
+
+function getSkipLinkName(link) {
+  if (!(link instanceof Element)) return "";
+
+  return [
+    getVisibleControlText(link),
+    link.getAttribute("aria-label"),
+    getReferencedTextContent(link.getAttribute("aria-labelledby")),
+    link.getAttribute("title")
+  ].find((value) => typeof value === "string" && value.trim().length > 0) || "";
+}
+
+function isSkipTargetTiedToMain(target, mainContent) {
+  if (!(target instanceof Element) || !(mainContent instanceof Element)) return false;
+
+  if (target === mainContent) return true;
+
+  const mainId = String(mainContent.getAttribute("id") || "").trim();
+  if (mainId && target.id === mainId) return true;
+
+  return false;
+}
+
+function hasValidSkipToMainLink(links, mainContent) {
+  const fragmentLinks = Array.isArray(links) ? links : [];
+
+  return fragmentLinks.some((link) => {
+    if (!(link instanceof HTMLAnchorElement)) return false;
+    if (isSmlcOwnedElement(link) || isHiddenFromAllUsers(link)) return false;
+
+    const href = String(link.getAttribute("href") || "").trim();
+    if (href.length <= 1) return false;
+
+    let targetId = "";
+    if (href.startsWith("#")) {
+      targetId = href.slice(1);
+    } else {
+      try {
+        const parsedUrl = new URL(link.href, window.location.href);
+        if (parsedUrl.origin !== window.location.origin
+          || parsedUrl.pathname !== window.location.pathname
+          || parsedUrl.search !== window.location.search) {
+          return false;
+        }
+        targetId = parsedUrl.hash.startsWith("#") ? parsedUrl.hash.slice(1) : "";
+      } catch {
+        return false;
+      }
+    }
+
+    if (!targetId) return false;
+    const target = document.getElementById(targetId);
+    if (!(target instanceof Element)) return false;
+
+    const linkName = getSkipLinkName(link).toLowerCase();
+    if (!/(skip|bypass)/.test(linkName)) return false;
+
+    if (!(mainContent instanceof Element)) return false;
+    if (mainContent.contains(link)) return false;
+    const position = link.compareDocumentPosition(mainContent);
+    if (!(position & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+
+    return isSkipTargetTiedToMain(target, mainContent);
+  });
 }
 
 function buildEmbeddedContentFixSuggestions(title, element) {
@@ -2656,7 +2727,7 @@ function buildBrokenLinkFixSuggestions(title, element) {
       },
       {
         heading: "Or update the href to a valid fragment target",
-        code: `<a href="#mainContent">Skip to main content</a>\n<main id="mainContent">...</main>`
+        code: `<a href="#maincontent">Skip to main content</a>\n<main id="maincontent">...</main>`
       }
     ];
   }
@@ -3178,7 +3249,7 @@ function getHeadingStructureFixContent(normalizedTitle, element) {
 }
 
 function getLandmarkFixContent(normalizedTitle) {
-  if (["Missing Main Content Region", "Missing Main Landmark"].includes(normalizedTitle)) {
+  if (["No Main Content", "Missing Main Content Region", "Missing Main Landmark"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Add a main content landmark",
       description: "This page needs a main content region so assistive technology users can jump directly to the primary content.",
@@ -3596,6 +3667,7 @@ function showComplianceFixModal(title, element) {
   modal.appendChild(footer);
   backdrop.appendChild(modal);
   markSmlcElementTree(backdrop);
+  enforceSmlcPopupUntabbableSubtree(backdrop);
 
   backdrop.addEventListener("click", (event) => {
     if (event.target === backdrop) {
@@ -3755,6 +3827,7 @@ function getPlainLanguageIssueDescription(title) {
     "Complex Table Missing Header Associations": "This table has grouped or spanning headers, but the cells are not explicitly tied to the right headers. Screen readers may announce the wrong context or not enough context.",
     "Possible Layout Table": "This looks like a table being used just for layout. Screen readers may still treat it like a real data table.",
     "Missing Navigation Landmark": "There is no clear navigation area for assistive tool users to jump to when they want the site's navigation.",
+    "No Main Content": "There is no clear main content area, so users may have no dependable place to land after bypassing repeated page chrome.",
     "Missing Main Landmark": "There is no clear main content area, so users may have a harder time skipping past repeated page chrome to get to the real content.",
     "Custom Navigation Container Missing Landmark": "This area already looks like navigation, but it is not marked as a navigation landmark. Users may miss it when they jump through page regions.",
     "Custom Main Content Container Missing Landmark": "This looks like the page's main content, but it is not marked as the main landmark. Users may have a harder time jumping to the real content."
@@ -3819,7 +3892,98 @@ function markSmlcElementTree(element) {
     child.dataset.smlc = "1";
   });
 
+  applySmlcDefaultTabPolicy(element);
+
   return element;
+}
+
+function applySmlcDefaultTabPolicy(element) {
+  if (!(element instanceof Element)) return element;
+
+  const applyPolicy = (node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (!node.matches("div, button")) return;
+    if (String(node.dataset.smlcAllowTabStop || "").toLowerCase() === "true") return;
+    makeSmlcControlUntabbable(node);
+  };
+
+  applyPolicy(element);
+  element.querySelectorAll("div, button").forEach((child) => applyPolicy(child));
+  return element;
+}
+
+function makeSmlcControlUntabbable(element) {
+  if (!(element instanceof HTMLElement)) return element;
+  element.setAttribute("tabindex", "-1");
+  element.tabIndex = -1;
+  return element;
+}
+
+const SMLC_POPUP_UNTABBABLE_SELECTOR = "a, button, input, select, textarea, summary, iframe, object, embed, [contenteditable='true'], [role='button'], [tabindex]";
+const SMLC_POPUP_UNTABBABLE_OBSERVERS = new WeakMap();
+
+function enforceSmlcPopupUntabbableSubtree(container) {
+  if (!(container instanceof HTMLElement)) return container;
+
+  applySmlcDefaultTabPolicy(container);
+  makeSmlcControlUntabbable(container);
+  container.querySelectorAll(SMLC_POPUP_UNTABBABLE_SELECTOR)
+    .forEach((node) => makeSmlcControlUntabbable(node));
+
+  if (!SMLC_POPUP_UNTABBABLE_OBSERVERS.has(container)) {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          enforceSmlcPopupUntabbableSubtree(node);
+        });
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+    SMLC_POPUP_UNTABBABLE_OBSERVERS.set(container, observer);
+  }
+
+  return container;
+}
+
+function removeSmlcAlertPaneFromTabOrder(container) {
+  if (!(container instanceof HTMLElement)) return container;
+
+  return enforceSmlcPopupUntabbableSubtree(container);
+}
+
+function bindInlineAlertShortcut(element, toggleButton, panesContainer) {
+  if (!(element instanceof HTMLElement)
+    || !(toggleButton instanceof HTMLButtonElement)
+    || !(panesContainer instanceof HTMLElement)
+    || element.dataset.smlcInlineAlertShortcutBound === "true") {
+    return;
+  }
+
+  element.dataset.smlcInlineAlertShortcutBound = "true";
+
+  const shortcutHintId = `${toggleButton.getAttribute("aria-controls") || createAlertId()}-shortcut`;
+  const shortcutHint = document.createElement("span");
+  shortcutHint.id = shortcutHintId;
+  shortcutHint.hidden = true;
+  shortcutHint.textContent = "Press Alt+Shift+A to review Tzedek issue details for this item.";
+  markSmlcElementTree(shortcutHint);
+  document.body.appendChild(shortcutHint);
+
+  const describedBy = String(element.getAttribute("aria-describedby") || "").trim();
+  element.setAttribute("aria-describedby", describedBy ? `${describedBy} ${shortcutHintId}` : shortcutHintId);
+  element.setAttribute("aria-keyshortcuts", "Alt+Shift+A");
+
+  element.addEventListener("keydown", (event) => {
+    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "a") {
+      stopComplianceControlEvent(event);
+      const willOpen = panesContainer.hidden;
+      if (willOpen) {
+        closeAllFloatingInlineAlertPanes(panesContainer);
+      }
+      setInlineAlertExpanded(toggleButton, panesContainer, willOpen);
+    }
+  });
 }
 
 function setSmlcOwnedHtml(element, html) {
@@ -4623,6 +4787,7 @@ function createComplianceAlert(level, title, message, element) {
     toggleButton.setAttribute("aria-controls", paneId);
     toggleButton.setAttribute("aria-label", "Select button to review 1 issue");
     toggleButton.setAttribute("title", "Select button to review 1 issue");
+    makeSmlcControlUntabbable(toggleButton);
     setSmlcOwnedHtml(toggleButton, "<i class='bi bi-universal-access' aria-hidden='true'></i><span class='sml-compliance-alert-count' aria-hidden='true'>1</span>");
 
     panesContainer = document.createElement("div");
@@ -4653,8 +4818,15 @@ function createComplianceAlert(level, title, message, element) {
     wrapper.appendChild(toggleButton);
     markSmlcElementTree(wrapper);
     markSmlcElementTree(panesContainer);
+    removeSmlcAlertPaneFromTabOrder(panesContainer);
 
     INLINE_ALERT_WRAPPERS.set(wrapper, { wrapper, toggleButton, panesContainer });
+
+    if (mountTarget instanceof HTMLElement) {
+      bindInlineAlertShortcut(mountTarget, toggleButton, panesContainer);
+    } else if (element instanceof HTMLElement) {
+      bindInlineAlertShortcut(element, toggleButton, panesContainer);
+    }
 
     if (body && shouldUseFloatingPane) {
       body.appendChild(panesContainer);
@@ -4693,6 +4865,14 @@ function createComplianceAlert(level, title, message, element) {
       INLINE_ALERT_HOSTS.set(element, { wrapper, toggleButton, panesContainer });
     }
   }
+
+  makeSmlcControlUntabbable(toggleButton);
+  removeSmlcAlertPaneFromTabOrder(panesContainer);
+  if (mountTarget instanceof HTMLElement) {
+    bindInlineAlertShortcut(mountTarget, toggleButton, panesContainer);
+  } else if (element instanceof HTMLElement) {
+    bindInlineAlertShortcut(element, toggleButton, panesContainer);
+  }
   
   const alertDiv = document.createElement("div");
   alertDiv.id = paneId;
@@ -4706,6 +4886,7 @@ function createComplianceAlert(level, title, message, element) {
   closePaneButton.setAttribute("aria-label", "Close issue details");
   closePaneButton.setAttribute("title", "Close issue details");
   closePaneButton.textContent = "×";
+  makeSmlcControlUntabbable(closePaneButton);
   ["pointerdown", "mousedown", "mouseup", "keydown", "keyup"].forEach((eventName) => {
     closePaneButton.addEventListener(eventName, (event) => {
       stopComplianceControlEvent(event);
@@ -4744,6 +4925,7 @@ function createComplianceAlert(level, title, message, element) {
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
     moreInfoLink.textContent = "More Info";
+    makeSmlcControlUntabbable(moreInfoLink);
     alertDiv.appendChild(moreInfoLink);
   }
 
@@ -4753,11 +4935,13 @@ function createComplianceAlert(level, title, message, element) {
   issueGuideLink.target = "_blank";
   issueGuideLink.rel = "noopener noreferrer";
   issueGuideLink.textContent = "Tzedek Guide";
+  makeSmlcControlUntabbable(issueGuideLink);
   alertDiv.appendChild(issueGuideLink);
 
   applyAlertSeverityToToggle(toggleButton, level);
   maybeAppendFixButton(alertDiv, level, title, element);
   markSmlcElementTree(alertDiv);
+  removeSmlcAlertPaneFromTabOrder(alertDiv);
 
   panesContainer.appendChild(alertDiv);
   updateInlineAlertToggleCount(toggleButton, panesContainer);
@@ -4779,6 +4963,7 @@ export class smlCompliance {
     };
     
     this.alerts = [];
+    this.pageLinks = [];
     this.container = document.querySelector(this.cfg.containerSelector);
   }
 
@@ -4787,6 +4972,7 @@ export class smlCompliance {
    */
   async runCompleteAudit() {
     this.clearAlerts();
+    this.pageLinks = Array.from(document.querySelectorAll("a[href]"));
     
     const checks = [
       () => this.checkPageStructure(),
@@ -4916,13 +5102,6 @@ export class smlCompliance {
     // Viewport meta tag
     if (!document.querySelector("meta[name='viewport']")) {
       this.addAlert("warning", "Missing Viewport Meta Tag", "Viewport meta tag helps responsive design and mobile accessibility");
-    }
-
-    // Skip to main content link
-    const mainRegion = document.querySelector("[role='main'], main, #pageContentWrapper, #page-content-wrapper");
-    const hasSkipLink = !!document.querySelector("a[href='#main'], a[href='#content'], a[href='#pageContentWrapper'], a[href='#page-content-wrapper']");
-    if (!hasSkipLink && !mainRegion) {
-      this.addAlert("info", "Missing Skip to Main Content Link", "Consider adding a skip link for keyboard users", document.body);
     }
   }
 
@@ -5065,7 +5244,9 @@ export class smlCompliance {
    * Check links for accessibility
    */
   async checkLinks() {
-    const links = Array.from(document.querySelectorAll("a[href]"));
+    const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
+      ? this.pageLinks
+      : Array.from(document.querySelectorAll("a[href]"));
     const linkTextGroups = new Map();
     
     for (const link of links) {
@@ -5867,17 +6048,21 @@ export class smlCompliance {
    * Check for skip links
    */
   checkSkipLinks() {
-    const skipLink = document.querySelector("a[href='#main'], a[href='#content'], a[href='#skip'], a[href='#pageContentWrapper']");
-    if (!skipLink) {
-      this.addAlert("info", "Missing Skip Link", 
-        `Add a keyboard-first skip link near the start of page content: <code>&lt;a href="#pageContentWrapper" class="visually-hidden-focusable"&gt;Skip to main content&lt;/a&gt;</code>. Ensure the destination exists as <code>id="pageContentWrapper"</code> on <code>&lt;main&gt;</code> or an element with <code>role="main"</code>.`,
-        document.body);
+    const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
+      ? this.pageLinks
+      : Array.from(document.querySelectorAll("a[href]"));
+    const mainContent = getDeclaredMainContentRegion();
+    const hasSkipLink = hasValidSkipToMainLink(links, mainContent);
+
+    if (!mainContent) {
+      this.addAlert("info", "No Main Content", 
+        `Page should have one primary content region using <code>&lt;main&gt;</code> or an element with <code>role="main"</code>.`, document.body);
     }
 
-    const mainContent = document.querySelector("main, [role='main'], #main, #content, #pageContentWrapper") || getCustomMainLandmarkCandidate();
-    if (!mainContent) {
-      this.addAlert("info", "Missing Main Content Region", 
-        `Page should have a <main> element or role="main"`, document.body);
+    if (!hasSkipLink) {
+      this.addAlert("info", "Missing Skip to Main Content Link", 
+        `Add a keyboard-first skip link near the start of page content: <code>&lt;a href="#maincontent" class="visually-hidden-focusable"&gt;Skip to main content&lt;/a&gt;</code>. Prefer a native <code>&lt;main id="maincontent"&gt;</code> target. For older patterns, use an element with <code>role="main"</code> and the same target id.`,
+        document.body);
     }
   }
 
