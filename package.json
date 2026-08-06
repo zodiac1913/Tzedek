@@ -7,7 +7,9 @@
   "license": "MIT",
   "scripts": {
     "import:cats": "node scripts/import-from-cats.cjs",
+    "demo:sync": "node scripts/sync-demo-page.cjs",
     "extension:sync": "node scripts/sync-extension-page.cjs",
-    "demo:sync": "node scripts/sync-demo-page.cjs"
+    "cats:sync": "node scripts/sync-cats-tzedek.cjs",
+    "verify:cats": "node scripts/verify-cats-tzedek-sync.cjs"
   }
 }

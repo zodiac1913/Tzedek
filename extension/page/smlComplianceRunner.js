@@ -31,6 +31,29 @@
     return TZEDEK_VERSION;
   }
 
+  function getBookmarkletVersion() {
+    const currentScriptSrc = document.currentScript?.src || CURRENT_SCRIPT_SRC || "";
+    if (!currentScriptSrc) return "";
+
+    try {
+      return new URL(currentScriptSrc, window.location.href).searchParams.get("bookmarkletVersion") || "";
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  function getBookmarkletUpdateNotice(displayVersion, bookmarkletVersion) {
+    const normalizedBookmarkletVersion = (bookmarkletVersion || "").trim();
+    if (!normalizedBookmarkletVersion) return null;
+    if (normalizedBookmarkletVersion === displayVersion) return null;
+
+    return {
+      bookmarkletVersion: normalizedBookmarkletVersion,
+      runtimeVersion: displayVersion,
+      installUrl: "/compliance-bookmarklet.html"
+    };
+  }
+
   function resolveModuleUrl() {
     const configuredUrl = getRuntimeConfig().moduleUrl || document.currentScript?.dataset.moduleUrl || "";
     if (configuredUrl) {
@@ -286,6 +309,15 @@
 
     refreshInFlight = true;
     try {
+      // Clean up all existing inline alerts and highlights before re-running
+      document.querySelectorAll(".sml-compliance-alert").forEach(el => el.remove());
+      document.querySelectorAll(".sml-compliance-alert-panes-floating").forEach(el => el.remove());
+      document.querySelectorAll(".smlc-unblocked-alert-button").forEach(el => el.remove());
+      document.querySelectorAll(".smlc-target-flash").forEach(el => clearJumpTargetHighlight(el));
+      document.querySelectorAll(".sml-compliance-alert-toggle[aria-expanded='true']").forEach((el) => {
+        el.setAttribute("aria-expanded", "false");
+      });
+      
       const report = await currentCompliance.runCompleteAudit();
       window[REPORT_FLAG] = report;
       if (currentOptions?.showIssuePanel) {
@@ -529,18 +561,34 @@
     const style = document.createElement("style");
     style.id = PANEL_STYLE_ID;
     style.textContent = [
-      "#" + PANEL_ID + "{position:relative;z-index:2147483646;background:#f8fafc;border:2px solid #0f172a;border-radius:10px;padding:0.75rem 1rem;margin:0.5rem;box-shadow:0 8px 20px rgba(15,23,42,0.2);font-family:Arial,Helvetica,sans-serif;color:#0f172a;}",
+      "#" + PANEL_ID + "{position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#f8fafc;border:2px solid #0f172a;border-radius:10px;padding:0.75rem 1rem;margin:0.5rem;box-shadow:0 8px 20px rgba(15,23,42,0.2);font-family:Arial,Helvetica,sans-serif;color:#0f172a;}",
+      ".sml-compliance-alert{position:relative;z-index:2147483646;}",
+      ".sml-compliance-alert-toggle{position:relative;z-index:2147483646;}",
       "#" + PANEL_ID + " .smlc-headline{display:grid !important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center !important;gap:0.6rem;width:100%;}",
       "#" + PANEL_ID + " .smlc-headline-main{display:flex !important;align-items:center !important;justify-content:flex-start !important;gap:0.45rem;flex-wrap:nowrap !important;min-width:0;}",
       "#" + PANEL_ID + " .smlc-headline-center{display:flex !important;align-items:center !important;justify-content:center !important;justify-self:center;}",
-      "#" + PANEL_ID + " .smlc-version{display:inline-flex;align-items:center;justify-content:center;padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #94a3b8;background:#e2e8f0;color:#334155;font-size:0.78rem;font-weight:700;}",
+      "#" + PANEL_ID + " .smlc-version{display:inline-flex;align-items:center;justify-content:center;padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #94a3b8;background:#e2e8f0;color:#334155;font-size:0.78rem;font-weight:700;text-decoration:none;}",
+      "#" + PANEL_ID + " .smlc-version:hover{background:#cbd5e1;color:#0f172a;}",
+      "#" + PANEL_ID + " .smlc-version:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;}",
+      "#" + PANEL_ID + " .smlc-update-notice{display:flex;align-items:flex-start;justify-content:space-between;margin:0.55rem 0 0;padding:0.65rem 0.8rem;border:1px solid #b45309;border-radius:8px;background:#fffbeb;color:#78350f;font-size:0.84rem;line-height:1.45;gap:0.5rem;}",
+      "#" + PANEL_ID + " .smlc-update-notice strong{display:block;margin-bottom:0.15rem;font-size:0.88rem;}",
+      "#" + PANEL_ID + " .smlc-update-notice a{color:#92400e;font-weight:700;text-decoration:underline;}",
+      "#" + PANEL_ID + " .smlc-alert-close-btn{background:none;border:none;color:#78350f;cursor:pointer;font-size:1.2rem;line-height:1;padding:0;min-width:auto;flex-shrink:0;}",
+      "#" + PANEL_ID + " .smlc-update-notice .smlc-alert-close-btn:hover{color:#b45309;}",
+      "#" + PANEL_ID + " .smlc-alert-close-btn:focus-visible{outline:2px solid #b45309;outline-offset:2px;border-radius:3px;}",
       "#" + PANEL_ID + " .smlc-toggle-btn,#" + PANEL_ID + " .smlc-refresh-btn{border:1px solid #334155;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.875rem;font-weight:700;cursor:pointer;min-height:31px;}",
       "#" + PANEL_ID + " .smlc-toggle-btn{background:#fff !important;color:#0f172a !important;}",
       "#" + PANEL_ID + " .smlc-refresh-btn{display:inline-flex;align-items:center;justify-content:center;min-width:31px;background:#bae6fd !important;color:#082f49 !important;line-height:1;font-size:1.75rem;box-shadow:0 0.35rem 0.9rem rgba(125,211,252,0.45);}",
       "#" + PANEL_ID + " .smlc-refresh-btn:disabled{opacity:0.65;cursor:progress;}",
-      "#" + PANEL_ID + " .smlc-body{margin-top:0.55rem;}",
-      "#" + PANEL_ID + " .smlc-summary{display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.65rem 0;}",
-      "#" + PANEL_ID + " .smlc-pill{padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #334155;font-size:0.8rem;background:#e2e8f0;}",
+      "#" + PANEL_ID + " .smlc-body{margin-top:0.55rem;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;}",
+      "#" + PANEL_ID + " .smlc-controls{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;margin:0.65rem 0;}",
+      "#" + PANEL_ID + " .smlc-summary{display:flex;flex-wrap:wrap;gap:0.4rem;}",
+      "#" + PANEL_ID + " .smlc-pill{padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #334155;font-size:0.8rem;background:#e2e8f0;cursor:pointer;font-weight:700;color:#0f172a;}",
+      "#" + PANEL_ID + " .smlc-pill[aria-pressed='false']{background:#ffffff;color:#475569;border-color:#94a3b8;opacity:0.75;}",
+      "#" + PANEL_ID + " .smlc-pill:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;}",
+      "#" + PANEL_ID + " .smlc-sort-wrap{display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;font-weight:700;color:#334155;}",
+      "#" + PANEL_ID + " .smlc-sort-select{border:1px solid #334155;border-radius:6px;background:#fff;color:#0f172a;font-size:0.8rem;padding:0.2rem 0.35rem;}",
+      "#" + PANEL_ID + " .smlc-sort-select:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px;}",
       "#" + PANEL_ID + " .smlc-issue-list{margin:0.55rem 0 0;padding-left:1.25rem;}",
       "#" + PANEL_ID + " .smlc-item{border:1px solid #cbd5e1;border-radius:8px;padding:0.55rem 0.6rem;margin-bottom:0.45rem;background:#ffffff;}",
       "#" + PANEL_ID + " .smlc-title{font-weight:700;margin-bottom:0.2rem;}",
@@ -548,11 +596,14 @@
       "#" + PANEL_ID + " .smlc-meta{font-size:0.82rem;color:#475569;margin-top:0.25rem;}",
       "#" + PANEL_ID + " .smlc-jump-link{display:inline-block;margin-top:0.35rem;color:#1d4ed8;font-size:0.82rem;font-weight:600;text-decoration:underline;}",
       "#" + PANEL_ID + " .smlc-jump-link:hover{color:#1e3a8a;}",
+      "#" + PANEL_ID + " .smlc-issue-message-link{color:inherit;text-decoration:underline dotted #1d4ed8;cursor:pointer;}",
+      "#" + PANEL_ID + " .smlc-issue-message-link:hover{color:#1d4ed8;text-decoration:solid underline #1d4ed8;}",
       ".smlc-target-flash{outline:4px solid #f59e0b !important;outline-offset:2px !important;transition:outline-color 900ms ease;}",
       "#" + PANEL_ID + " .smlc-actions{display:flex !important;align-items:center !important;justify-content:flex-end !important;justify-self:end;gap:0.35rem;flex-wrap:nowrap !important;min-width:0;}",
       "@media (max-width: 820px){#" + PANEL_ID + " .smlc-headline{grid-template-columns:1fr;row-gap:0.5rem;}#" + PANEL_ID + " .smlc-headline-main{justify-content:center !important;}#" + PANEL_ID + " .smlc-headline-center{order:-1;}#" + PANEL_ID + " .smlc-actions{justify-content:center !important;justify-self:center;}}",
       "#" + PANEL_ID + " .smlc-close-btn{border:1px solid #334155;background:#fff !important;color:#0f172a !important;border-radius:6px;padding:0.15rem 0.45rem;font-size:0.8rem;cursor:pointer;}",
-      "#" + PANEL_ID + " .btn.btn-dark{color:#ffffff !important;background:#1f2937 !important;border-color:#111827 !important;}"
+      "#" + PANEL_ID + " .btn.btn-dark{color:#ffffff !important;background:#1f2937 !important;border-color:#111827 !important;}",
+      ".smlc-unblocked-alert-button{box-shadow:0 0 0.5rem rgba(220,38,38,0.5) !important;border-color:#dc2626 !important;}"
     ].join("");
     markSmlcElementTree(style);
     document.head.appendChild(style);
@@ -573,6 +624,8 @@
       const level = (alert.level || "info").toLowerCase();
       return {
         id: "smlc-issue-" + index,
+        originalIndex: index,
+        pageOrder: getIssuePageOrder(alert.element, index),
         level,
         levelLabel: getLevelLabel(level),
         title: alert.title || "Issue",
@@ -582,6 +635,106 @@
         targetId: getSafeTargetId(alert.element, index)
       };
     });
+  }
+
+  function getIssuePageOrder(element, fallbackIndex) {
+    if (!element || typeof element.getBoundingClientRect !== "function") {
+      return Number.MAX_SAFE_INTEGER - 10000 + fallbackIndex;
+    }
+
+    try {
+      const rect = element.getBoundingClientRect();
+      const pageTop = rect.top + window.scrollY;
+      const pageLeft = rect.left + window.scrollX;
+      return pageTop * 100000 + pageLeft;
+    } catch (_err) {
+      return Number.MAX_SAFE_INTEGER - 10000 + fallbackIndex;
+    }
+  }
+
+  function detectBlockedAlerts() {
+    const alertButtons = document.querySelectorAll(".sml-compliance-alert-toggle");
+    let blockedCount = 0;
+    const blockedLabels = [];
+
+    alertButtons.forEach(btn => {
+      try {
+        const rect = btn.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          blockedCount++;
+          return;
+        }
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const elementAtPoint = document.elementFromPoint(centerX, centerY);
+
+        if (!elementAtPoint || !btn.contains(elementAtPoint) && !elementAtPoint.closest(".sml-compliance-alert")) {
+          blockedCount++;
+          
+          // Find the target element for this alert
+          const alertContainer = btn.closest(".sml-compliance-alert");
+          const targetId = btn.getAttribute("data-smlc-target") || 
+                          alertContainer?.querySelector("[id^='smlc-issue-target-']")?.id;
+          const targetElement = targetId ? document.getElementById(targetId) : null;
+          
+          // Apply highlight to target so user knows what element has the issue
+          if (targetElement) {
+            applyJumpTargetHighlight(targetElement);
+          }
+          
+          // Find the blocking element and its topmost container (e.g., card, portal-card, etc.)
+          let blockingElement = elementAtPoint;
+          let container = blockingElement;
+          
+          if (blockingElement && !blockingElement.closest(".sml-compliance-alert")) {
+            // Traverse up to find a meaningful container (card, portal-card, or similar widget)
+            while (container && container !== document.body) {
+              const classList = container.className;
+              if (classList && (classList.includes("card") || classList.includes("portal") || classList.includes("widget"))) {
+                break;
+              }
+              container = container.parentElement;
+            }
+            
+            // If we found a container, insert cloned alert next to it
+            if (container && container !== document.body) {
+              const clonedBtn = btn.cloneNode(true);
+              clonedBtn.className += " smlc-unblocked-alert-button";
+              clonedBtn.style.marginLeft = "0.35rem";
+              clonedBtn.title = "Accessibility alert (covered by app button)";
+              
+              // Re-attach click handler to make the cloned button functional
+              clonedBtn.onclick = btn.onclick;
+              clonedBtn.addEventListener("click", function(e) {
+                btn.click();
+              });
+              
+              if (container.nextSibling) {
+                container.parentNode.insertBefore(clonedBtn, container.nextSibling);
+              } else {
+                container.parentNode.appendChild(clonedBtn);
+              }
+            }
+          }
+          
+          // Hide/remove the original blocked alert button since user will use the cloned one
+          btn.style.display = "none";
+          
+          const parent = btn.closest("[data-smlc-generated-id]");
+          if (parent) {
+            const sibling = parent.querySelector("[id^='smlc-issue-target-']");
+            if (sibling && sibling.id) {
+              blockedLabels.push(sibling.id);
+            }
+          }
+        }
+      } catch (_) {
+        // Silently skip elements that error on getBoundingClientRect
+      }
+    });
+
+    return { blockedCount, blockedLabels };
   }
 
   function renderIssuePanel(report) {
@@ -595,22 +748,83 @@
     const issues = buildIssueRecords(report.alerts);
     const total = Number(report.total || 0);
     const displayVersion = getDisplayVersion();
+    const bookmarkletVersion = getBookmarkletVersion();
+    const updateNotice = getBookmarkletUpdateNotice(displayVersion, bookmarkletVersion);
+    const blockedAlerts = detectBlockedAlerts();
+    const levelConfig = [
+      { key: "critical", label: "Critical", count: Number(report.critical || 0) },
+      { key: "error", label: "Errors", count: Number(report.errors || 0) },
+      { key: "warning", label: "Warnings", count: Number(report.warnings || 0) },
+      { key: "info", label: "Info", count: Number(report.info || 0) }
+    ];
+    const levelRank = { critical: 0, error: 1, warning: 2, info: 3 };
+    const activeLevels = new Set(levelConfig.map(item => item.key));
+    let sortMode = "found";
 
-    const issuesHtml = issues.map(issue => {
+    const issuesHtml = function (renderIssues) {
+      return renderIssues.map(issue => {
       const jumpLink = issue.targetId
         ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>Jump to location</a>"
         : "<a class='smlc-jump-link' href='#' data-smlc-target='body'>Jump to location</a>";
+
+      const messageHtml = issue.targetId
+        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>" + escapeHtml(issue.message) + "</a>"
+        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body'>" + escapeHtml(issue.message) + "</a>";
 
       return [
         "<li class='smlc-item'>",
         "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
         issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
-        "<div>" + escapeHtml(issue.message) + "</div>",
+        "<div>" + messageHtml + "</div>",
         "<div class='smlc-meta'><strong>Why this matters:</strong> " + escapeHtml(issue.why) + "</div>",
         jumpLink,
         "</li>"
       ].join("");
-    }).join("");
+      }).join("");
+    };
+
+    function getVisibleIssues() {
+      const filtered = issues.filter(issue => activeLevels.has(issue.level));
+      const sorted = filtered.slice();
+
+      if (sortMode === "page") {
+        sorted.sort((a, b) => {
+          if (a.pageOrder !== b.pageOrder) return a.pageOrder - b.pageOrder;
+          return a.originalIndex - b.originalIndex;
+        });
+      } else if (sortMode === "priority") {
+        sorted.sort((a, b) => {
+          const rankA = Object.prototype.hasOwnProperty.call(levelRank, a.level) ? levelRank[a.level] : 99;
+          const rankB = Object.prototype.hasOwnProperty.call(levelRank, b.level) ? levelRank[b.level] : 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.originalIndex - b.originalIndex;
+        });
+      } else if (sortMode === "title") {
+        sorted.sort((a, b) => {
+          const titleCompare = a.title.localeCompare(b.title);
+          if (titleCompare !== 0) return titleCompare;
+          return a.originalIndex - b.originalIndex;
+        });
+      } else {
+        sorted.sort((a, b) => a.originalIndex - b.originalIndex);
+      }
+
+      return sorted;
+    }
+
+    function updateToggleButtonLabel(visibleCountOverride) {
+      const toggleButton = panel.querySelector("button[data-smlc-toggle]");
+      const body = panel.querySelector("#smlc-issues-body");
+      if (!toggleButton || !body) return;
+
+      const visibleCount = Number.isFinite(visibleCountOverride)
+        ? visibleCountOverride
+        : getVisibleIssues().length;
+
+      toggleButton.textContent = body.hidden
+        ? "See all issues (" + visibleCount + " of " + total + ")"
+        : "Hide all issues (" + visibleCount + " of " + total + ")";
+    }
 
     const panel = document.createElement("section");
     panel.id = PANEL_ID;
@@ -623,24 +837,51 @@
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
-      "<span class='smlc-version' aria-label='Tzedek version'>v" + escapeHtml(displayVersion) + "</span>",
+      "<a class='smlc-version' href='https://github.com/zodiac1913/Tzedek' target='_blank' rel='noopener noreferrer' title='Go to Tzedek Repo' aria-label='Go to Tzedek Repo'>v" + escapeHtml(displayVersion) + "</a>",
       "</div>",
       "<div class='smlc-actions'>",
       "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar'>Close Issues Bar</button>",
       "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek'>Close Tzedek</button>",
       "</div>",
       "</div>",
+      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice'>✕</button></div>" : "",
+      blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
       "<div id='smlc-issues-body' class='smlc-body' hidden>",
-      "<div class='smlc-summary'>",
-      "<span class='smlc-pill'>Critical: " + Number(report.critical || 0) + "</span>",
-      "<span class='smlc-pill'>Errors: " + Number(report.errors || 0) + "</span>",
-      "<span class='smlc-pill'>Warnings: " + Number(report.warnings || 0) + "</span>",
-      "<span class='smlc-pill'>Info: " + Number(report.info || 0) + "</span>",
+      "<div class='smlc-controls'>",
+      "<div class='smlc-summary' data-smlc-summary></div>",
+      "<label class='smlc-sort-wrap' for='smlc-sort-select'>Order by",
+      "<select id='smlc-sort-select' class='smlc-sort-select' data-smlc-sort>",
+      "<option value='found'>Order Found</option>",
+      "<option value='page'>On Page</option>",
+      "<option value='priority'>Alert Priority</option>",
+      "<option value='title'>Title A-Z</option>",
+      "</select>",
+      "</label>",
       "</div>",
-      issues.length ? "<ol class='smlc-issue-list'>" + issuesHtml + "</ol>" : "<p>No issues reported.</p>",
+      "<div data-smlc-issues></div>",
       "</div>"
     ].join("");
     markSmlcElementTree(panel);
+
+    function renderFilteredIssues() {
+      const summaryHost = panel.querySelector("[data-smlc-summary]");
+      const issuesHost = panel.querySelector("[data-smlc-issues]");
+      if (!summaryHost || !issuesHost) return;
+
+      summaryHost.innerHTML = levelConfig.map(level => {
+        const pressed = activeLevels.has(level.key);
+        return "<button type='button' class='smlc-pill' data-smlc-level='" + escapeHtml(level.key) + "' aria-pressed='" + String(pressed) + "'>" + escapeHtml(level.label) + ": " + level.count + "</button>";
+      }).join("");
+
+      const visibleIssues = getVisibleIssues();
+      issuesHost.innerHTML = visibleIssues.length
+        ? "<ol class='smlc-issue-list'>" + issuesHtml(visibleIssues) + "</ol>"
+        : "<p>No issues match the current filters.</p>";
+
+      updateToggleButtonLabel(visibleIssues.length);
+    }
+
+    renderFilteredIssues();
 
     panel.addEventListener("click", function (event) {
       const toggleBtn = event.target.closest("button[data-smlc-toggle]");
@@ -650,9 +891,22 @@
         const willOpen = body.hidden;
         body.hidden = !willOpen;
         toggleBtn.setAttribute("aria-expanded", String(willOpen));
-        toggleBtn.textContent = willOpen
-          ? "Hide all issues (" + total + ")"
-          : "See all issues (" + total + ")";
+        updateToggleButtonLabel();
+        return;
+      }
+
+      const filterBtn = event.target.closest("button[data-smlc-level]");
+      if (filterBtn) {
+        const level = (filterBtn.getAttribute("data-smlc-level") || "").toLowerCase();
+        if (!level) return;
+
+        if (activeLevels.has(level)) {
+          activeLevels.delete(level);
+        } else {
+          activeLevels.add(level);
+        }
+
+        renderFilteredIssues();
         return;
       }
 
@@ -684,6 +938,15 @@
         return;
       }
 
+      const dismissAlertBtn = event.target.closest("button[data-smlc-dismiss-alert]");
+      if (dismissAlertBtn) {
+        const alertDiv = dismissAlertBtn.closest(".smlc-update-notice");
+        if (alertDiv) {
+          alertDiv.remove();
+        }
+        return;
+      }
+
       const jumpLink = event.target.closest("a[data-smlc-target]");
       if (!jumpLink) return;
 
@@ -700,6 +963,15 @@
       target.scrollIntoView({ behavior: "smooth", block: "center" });
       applyJumpTargetHighlight(target);
     });
+
+    const sortSelect = panel.querySelector("select[data-smlc-sort]");
+    if (sortSelect) {
+      sortSelect.value = sortMode;
+      sortSelect.addEventListener("change", function (event) {
+        sortMode = event.target.value || "found";
+        renderFilteredIssues();
+      });
+    }
 
     const mount = document.body || document.documentElement;
     mount.prepend(panel);

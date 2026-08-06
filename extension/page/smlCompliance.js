@@ -3427,6 +3427,13 @@ function getVisibleControlText(element) {
     node.remove();
   });
 
+  // Remove child elements that have their own aria-labels (they're self-contained)
+  clone.querySelectorAll("[aria-label]").forEach((node) => {
+    if (node !== clone) {
+      node.remove();
+    }
+  });
+
   return String(clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
@@ -4688,10 +4695,8 @@ export class smlCompliance {
 
       const result = await getCachedComplianceLinkStatus(auditUrl, this.cfg.brokenLinkTimeoutMs);
       if (result?.kind === "redirect") {
-        const redirectStatusText = result.status ? ` with ${result.status}` : "";
-        const finalDestination = result.finalUrl || `${auditUrl.pathname}${auditUrl.search}`;
-        this.addAlert("info", "Same-Origin Link Redirects",
-          `Link redirects${redirectStatusText} before reaching ${finalDestination}. Consider linking directly to the final destination if that is the intended page.`, link);
+        // Skip same-origin redirects: they're always app-internal routing (already filtered to same origin above)
+        // If the redirect is broken, it will be caught by the 4xx/5xx checks instead
       } else if (result?.kind === "http-error" && (result.status === 401 || result.status === 403)) {
         this.addAlert("warning", "Same-Origin Link Requires Authentication",
           `Link returns ${result.status} ${describeHttpStatus(result.status)} for ${auditUrl.pathname}${auditUrl.search}. Users may need to sign in or may not have permission to reach this page.`, link);
@@ -5072,6 +5077,18 @@ export class smlCompliance {
       || typeof element.onkeypress === "function"
     );
 
+    const hasSmlReactiveButtonRuntimeHint = (element) => {
+      const tagName = String(element?.tagName || "").toLowerCase();
+      if (tagName !== "sml-reactive-button") return false;
+
+      const keyWired = String(element.getAttribute("data-key-wired") || "").toLowerCase() === "true";
+      const wcagKeyDown = String(element.getAttribute("data-wcag-key-down") || "").trim() === "1";
+      const wcagKeyboard = String(element.getAttribute("data-wcag-keyboard") || "").toLowerCase() === "true";
+      const ariaShortcuts = String(element.getAttribute("aria-keyshortcuts") || "").toLowerCase();
+      const advertisesEnterAndSpace = ariaShortcuts.includes("enter") && ariaShortcuts.includes("space");
+      return keyWired || wcagKeyDown || wcagKeyboard || advertisesEnterAndSpace;
+    };
+
     const hasReactKeyboardPropHint = (element) => {
       const ownKeys = Object.keys(element || {});
       for (const key of ownKeys) {
@@ -5133,6 +5150,7 @@ export class smlCompliance {
       ||
       hasDeclarativeKeyboardBindingHint(element)
       || hasDomPropertyKeyboardHandler(element)
+      || hasSmlReactiveButtonRuntimeHint(element)
       || hasReactKeyboardPropHint(element)
       || hasVueKeyboardPropHint(element)
       || hasShadowKeyboardOrNativeControlHint(element)
@@ -5158,7 +5176,7 @@ export class smlCompliance {
       }
 
       const hasKeyboardHandler = hasKeyboardHandlerEvidence(elem);
-      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
+      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])") || elem.tabIndex >= 0;
 
       if (role === "button" && hasKeyboardHandler && hasTabStop) {
         continue;
@@ -5184,7 +5202,7 @@ export class smlCompliance {
 
     for (const elem of customRoleButtons) {
       const hasKeyboardHandler = hasKeyboardHandlerEvidence(elem);
-      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
+      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])") || elem.tabIndex >= 0;
 
       if (!hasTabStop) {
         this.addAlert("warning", "Button Role Not Focusable",
@@ -5198,7 +5216,7 @@ export class smlCompliance {
     }
 
     for (const elem of customElementRoleButtons) {
-      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])");
+      const hasTabStop = elem.matches("[tabindex]:not([tabindex='-1'])") || elem.tabIndex >= 0;
       if (!hasTabStop) {
         this.addAlert("warning", "Button Role Not Focusable",
           `${elem.tagName} uses role="button" but is not keyboard focusable. Add tabindex="0" or use a native <button>`, elem);
