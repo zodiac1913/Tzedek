@@ -189,7 +189,9 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Large headers, banners, and app shells make this shortcut more important, not less."
     ],
     reviewChecklist: [
-      "Add a skip link near the start of the page that moves focus to the main content region.",
+      "Prefer a native main element with a stable id such as maincontent.",
+      "Add a skip link near the start of the page that points to that main element id, such as href=#maincontent.",
+      "If older markup cannot use a native main element, use role=main on the main content container and give it the same target id.",
       "Make sure the link becomes visible when focused and actually works from the keyboard.",
       "Verify that the target is a real main region or another dependable landing point."
     ]
@@ -260,6 +262,19 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Verify both Enter and Space activate the same action without side effects.",
       "Confirm keyboard focus can reach the control before activation tests.",
       "Prefer a native button when possible to satisfy both runtime behavior and static rule expectations."
+    ]
+  },
+  "Duplicate SR-Only Button Label": {
+    overview: "This finding appears when a non-icon sml-reactive-button renders the same label twice: once as visible button text and again as screen-reader-only text.",
+    whyItMatters: [
+      "This is a real component defect, not just a style choice, because the button is rendering duplicate label sources for one control.",
+      "Non-icon buttons should expose one label source so the DOM stays simpler and less fragile during rendering and hydration.",
+      "If the source already renders only one label source but the browser DOM still shows both, the client may be running stale JavaScript or stale hydrated markup."
+    ],
+    reviewChecklist: [
+      "Confirm the button is a non-icon sml-reactive-button, not an icon-only button that still needs a programmatic name.",
+      "Remove the duplicate screen-reader-only label or the duplicate visible label so only one source remains for the non-icon button text.",
+      "If the component source already does that, refresh or rebuild the client bundle before concluding the component is still broken."
     ]
   },
   "Form Should Be Labeled": {

@@ -154,7 +154,41 @@
       child.setAttribute("data-smlc", "1");
     });
 
+    applySmlcDefaultTabPolicy(element);
+
     return element;
+  }
+
+  function applySmlcDefaultTabPolicy(element) {
+    if (!(element instanceof Element)) return element;
+
+    const applyPolicy = (node) => {
+      if (!(node instanceof HTMLElement)) return;
+      if (!node.matches("div, button")) return;
+      if (String(node.getAttribute("data-smlc-allow-tab-stop") || "").toLowerCase() === "true") return;
+      makePanelControlUntabbable(node);
+    };
+
+    applyPolicy(element);
+    element.querySelectorAll("div, button").forEach((child) => applyPolicy(child));
+    return element;
+  }
+
+  function makePanelControlUntabbable(element) {
+    if (!(element instanceof HTMLElement)) return element;
+    element.setAttribute("tabindex", "-1");
+    element.tabIndex = -1;
+    return element;
+  }
+
+  function removeIssuePanelControlsFromTabOrder(panel) {
+    if (!(panel instanceof HTMLElement)) return panel;
+
+    panel.querySelectorAll("button, a, [tabindex]").forEach((node) => {
+      makePanelControlUntabbable(node);
+    });
+
+    return panel;
   }
 
   function cacheExports(module) {
@@ -363,7 +397,7 @@
   }
 
   function getPrimaryJumpTarget() {
-    return document.querySelector("#pageContentWrapper, #page-content-wrapper, main, [role='main'], cc-container, sml-page")
+    return document.querySelector("main, [role='main'], #maincontent, #mainContent, #main, #content, #pageContentWrapper, #page-content-wrapper, cc-container, sml-page")
       || document.body
       || document.documentElement;
   }
@@ -862,6 +896,7 @@
       "</div>"
     ].join("");
     markSmlcElementTree(panel);
+    removeIssuePanelControlsFromTabOrder(panel);
 
     function renderFilteredIssues() {
       const summaryHost = panel.querySelector("[data-smlc-summary]");

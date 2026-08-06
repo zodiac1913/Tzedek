@@ -33,6 +33,76 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])"
 ].join(", ");
 
+const CONTRAST_AUDIT_TEXT_SELECTOR = [
+  "p",
+  "span",
+  "a[href]",
+  "button",
+  "label",
+  "li",
+  "td",
+  "th",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "strong",
+  "em",
+  "small",
+  "summary",
+  "[role='button']",
+  "[role='link']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='tab']",
+  "[role='menuitem']",
+  "[role='menuitemcheckbox']",
+  "[role='menuitemradio']",
+  "[role='option']",
+  "[role='treeitem']",
+  "[role='gridcell']"
+].join(", ");
+
+const CONTRAST_STATEFUL_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "summary",
+  "[role='button']",
+  "[role='link']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='tab']",
+  "[role='menuitem']",
+  "[role='menuitemcheckbox']",
+  "[role='menuitemradio']",
+  "[role='option']",
+  "[role='treeitem']",
+  "[role='gridcell']",
+  "[tabindex]:not([tabindex='-1'])"
+].join(", ");
+
+const CONTRAST_STATE_DEFINITIONS = [
+  { name: "hover", containsPattern: /:hover\b/i, replacePattern: /:hover\b/gi },
+  { name: "focus", containsPattern: /:focus\b(?!-visible|-within)/i, replacePattern: /:focus\b(?!-visible|-within)/gi },
+  { name: "focus-visible", containsPattern: /:focus-visible\b/i, replacePattern: /:focus-visible\b/gi },
+  { name: "focus-within", containsPattern: /:focus-within\b/i, replacePattern: /:focus-within\b/gi },
+  { name: "active", containsPattern: /:active\b/i, replacePattern: /:active\b/gi },
+  {
+    name: "visited",
+    containsPattern: /:visited\b/i,
+    replacePattern: /:visited\b/gi,
+    isRelevantFor: (stateOwner) => stateOwner instanceof HTMLAnchorElement && stateOwner.hasAttribute("href")
+  }
+];
+
+const CONTRAST_STATEFUL_PSEUDO_PATTERN = /:(?:hover|focus-visible|focus-within|focus|active|visited)\b/i;
+const CONTRAST_STATE_STYLE_PROPERTIES = ["color", "background", "background-color", "background-image"];
+let ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
+
 const ALERT_CLASSES = {
   critical: "alert bg-danger text-white border border-3 border-danger shadow-lg",
   error: "alert bg-danger text-white border border-3 border-danger shadow-lg",
@@ -99,6 +169,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Same-Origin Link Requires Authentication": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
   "Link Opens in New Window": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
   "Button Missing Text": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button",
+  "Duplicate SR-Only Button Label": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
   "Button Role Missing Keyboard Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Button Role Not Focusable": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Button Role Keyboard Handler Not Statically Verifiable": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
@@ -128,6 +199,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Empty List": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/ul",
   "Invalid List Content": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/li",
   "Motion Not Reduced": "https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion",
+  "No Main Content": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main",
   "Missing Main Content Region": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main",
   "Missing Error Message Element": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-describedby",
   "Missing Navigation Landmark": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/navigation_role",
@@ -191,6 +263,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Same-Origin Link Requires Authentication": "same origin link authentication accessibility",
   "Link Opens in New Window": "link opens in new window accessibility",
   "Button Missing Text": "HTML button accessibility",
+  "Duplicate SR-Only Button Label": "screen reader only duplicate button label accessibility",
   "Button Role Missing Keyboard Handler": "custom button keyboard accessibility",
   "Button Role Not Focusable": "custom button focus accessibility",
   "Button Role Keyboard Handler Not Statically Verifiable": "custom element delegated keyboard handler accessibility",
@@ -225,6 +298,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Empty List": "HTML list accessibility",
   "Invalid List Content": "HTML ul ol li accessibility",
   "Motion Not Reduced": "prefers reduced motion accessibility",
+  "No Main Content": "main landmark accessibility",
   "Missing Main Content Region": "main landmark accessibility",
   "Missing Error Message Element": "form error message accessibility",
   "Invalid aria-live Value": "aria-live accessibility",
@@ -456,6 +530,304 @@ function getEffectiveBackgroundColor(element) {
   }
 
   return { r: composed.r, g: composed.g, b: composed.b };
+}
+
+function splitSelectorList(selectorText) {
+  const selectors = [];
+  let current = "";
+  let depth = 0;
+  let quote = "";
+
+  for (const char of String(selectorText || "")) {
+    if (quote) {
+      current += char;
+      if (char === quote) {
+        quote = "";
+      }
+      continue;
+    }
+
+    if (char === "\"" || char === "'") {
+      quote = char;
+      current += char;
+      continue;
+    }
+
+    if (char === "(" || char === "[") {
+      depth += 1;
+      current += char;
+      continue;
+    }
+
+    if ((char === ")" || char === "]") && depth > 0) {
+      depth -= 1;
+      current += char;
+      continue;
+    }
+
+    if (char === "," && depth === 0) {
+      if (current.trim()) {
+        selectors.push(current.trim());
+      }
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    selectors.push(current.trim());
+  }
+
+  return selectors;
+}
+
+function computeSelectorSpecificity(selector) {
+  const safeSelector = String(selector || "").replace(/:where\(([^()]|\([^()]*\))*\)/g, "");
+  const idCount = (safeSelector.match(/#[\w-]+/g) || []).length;
+  const classLikeCount = (safeSelector.match(/\.[\w-]+/g) || []).length
+    + (safeSelector.match(/\[[^\]]+\]/g) || []).length
+    + (safeSelector.match(/:(?!:)[\w-]+(?:\([^)]*\))?/g) || []).length;
+  const typeOnlySelector = safeSelector
+    .replace(/#[\w-]+/g, " ")
+    .replace(/\.[\w-]+/g, " ")
+    .replace(/\[[^\]]+\]/g, " ")
+    .replace(/:(?!:)[\w-]+(?:\([^)]*\))?/g, " ");
+  const typeCount = (typeOnlySelector.match(/(^|[\s>+~])(?:[a-zA-Z][\w-]*)/g) || []).length
+    + (safeSelector.match(/::[\w-]+/g) || []).length;
+
+  return [idCount, classLikeCount, typeCount];
+}
+
+function compareSpecificity(left, right) {
+  for (let index = 0; index < 3; index += 1) {
+    const delta = (left[index] || 0) - (right[index] || 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+function collectAccessibleCssStyleRules() {
+  if (Array.isArray(ACCESSIBLE_CSS_STYLE_RULES_CACHE)) {
+    return ACCESSIBLE_CSS_STYLE_RULES_CACHE;
+  }
+
+  const collectedRules = [];
+  let nextOrder = 0;
+
+  const collectFromRuleList = (ruleList) => {
+    if (!ruleList) return;
+
+    for (const rule of ruleList) {
+      if (!rule) continue;
+
+      if (rule.type === CSSRule.STYLE_RULE) {
+        collectedRules.push({ rule, order: nextOrder++ });
+        continue;
+      }
+
+      if (rule.type === CSSRule.IMPORT_RULE) {
+        try {
+          collectFromRuleList(rule.styleSheet?.cssRules);
+        } catch {
+          // Ignore cross-origin import rules.
+        }
+        continue;
+      }
+
+      if ("cssRules" in rule) {
+        try {
+          collectFromRuleList(rule.cssRules);
+        } catch {
+          // Ignore unsupported nested rule collections.
+        }
+      }
+    }
+  };
+
+  for (const styleSheet of Array.from(document.styleSheets || [])) {
+    try {
+      collectFromRuleList(styleSheet.cssRules);
+    } catch {
+      // Ignore cross-origin stylesheets that block cssRules access.
+    }
+  }
+
+  ACCESSIBLE_CSS_STYLE_RULES_CACHE = collectedRules;
+  return collectedRules;
+}
+
+function buildContrastProbeChain(element) {
+  const chain = [];
+  let current = element;
+
+  while (current instanceof Element && current !== document.body) {
+    chain.push(current);
+    current = current.parentElement;
+  }
+
+  return chain;
+}
+
+function getContrastStateOwner(element) {
+  if (!(element instanceof Element)) return null;
+  if (element.matches(CONTRAST_STATEFUL_SELECTOR)) return element;
+  return element.closest(CONTRAST_STATEFUL_SELECTOR);
+}
+
+function collectContrastStateOverrides(element, stateDefinition, accessibleRules) {
+  const chain = buildContrastProbeChain(element);
+  if (chain.length === 0) return new Map();
+
+  const nodeOverrides = new Map(chain.map((node) => [node, new Map()]));
+
+  for (const { rule, order } of accessibleRules) {
+    const selectorText = String(rule.selectorText || "");
+    if (!stateDefinition.containsPattern.test(selectorText)) continue;
+
+    for (const selector of splitSelectorList(selectorText)) {
+      if (!stateDefinition.containsPattern.test(selector) || selector.includes("::")) continue;
+
+      const strippedSelector = selector
+        .replace(stateDefinition.replacePattern, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!strippedSelector || CONTRAST_STATEFUL_PSEUDO_PATTERN.test(strippedSelector)) continue;
+
+      let specificity;
+      try {
+        specificity = computeSelectorSpecificity(strippedSelector);
+      } catch {
+        continue;
+      }
+
+      for (const node of chain) {
+        let matchesSelector = false;
+        try {
+          matchesSelector = node.matches(strippedSelector);
+        } catch {
+          matchesSelector = false;
+        }
+
+        if (!matchesSelector) continue;
+
+        const propertyMap = nodeOverrides.get(node);
+        if (!propertyMap) continue;
+
+        for (const propertyName of CONTRAST_STATE_STYLE_PROPERTIES) {
+          const value = rule.style.getPropertyValue(propertyName);
+          if (!value) continue;
+
+          const important = rule.style.getPropertyPriority(propertyName) === "important";
+          const candidate = { value, important, specificity, order };
+          const existing = propertyMap.get(propertyName);
+
+          const shouldReplace = !existing
+            || (existing.important !== candidate.important && candidate.important)
+            || (existing.important === candidate.important && compareSpecificity(candidate.specificity, existing.specificity) > 0)
+            || (existing.important === candidate.important
+              && compareSpecificity(candidate.specificity, existing.specificity) === 0
+              && candidate.order >= existing.order);
+
+          if (shouldReplace) {
+            propertyMap.set(propertyName, candidate);
+          }
+        }
+      }
+    }
+  }
+
+  for (const [node, propertyMap] of Array.from(nodeOverrides.entries())) {
+    if (propertyMap.size === 0) {
+      nodeOverrides.delete(node);
+    }
+  }
+
+  return nodeOverrides;
+}
+
+function measureContrastStateSnapshot(element, stateOverrides) {
+  if (!(element instanceof Element)) return null;
+
+  const chain = buildContrastProbeChain(element);
+  if (chain.length === 0) return null;
+
+  const probeHost = document.createElement("div");
+  probeHost.setAttribute("aria-hidden", "true");
+  probeHost.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout style paint;z-index:-1;";
+
+  const cloneMap = new Map();
+  let parentClone = probeHost;
+
+  for (let index = chain.length - 1; index >= 0; index -= 1) {
+    const original = chain[index];
+    const clone = index === 0 ? original.cloneNode(true) : original.cloneNode(false);
+    cloneMap.set(original, clone);
+    parentClone.appendChild(clone);
+    parentClone = clone;
+  }
+
+  document.body.appendChild(probeHost);
+
+  try {
+    for (const [originalNode, propertyMap] of stateOverrides.entries()) {
+      const cloneNode = cloneMap.get(originalNode);
+      if (!(cloneNode instanceof HTMLElement) || !(propertyMap instanceof Map)) continue;
+
+      for (const [propertyName, declaration] of propertyMap.entries()) {
+        cloneNode.style.setProperty(propertyName, declaration.value, declaration.important ? "important" : "");
+      }
+    }
+
+    const clonedTarget = cloneMap.get(element);
+    if (!(clonedTarget instanceof Element)) return null;
+
+    return {
+      textRgb: parseRGB(window.getComputedStyle(clonedTarget).color),
+      backgroundRgb: getEffectiveBackgroundColor(clonedTarget)
+    };
+  } finally {
+    probeHost.remove();
+  }
+}
+
+function getContrastStateSnapshots(element) {
+  const stateOwner = getContrastStateOwner(element);
+  if (!(stateOwner instanceof Element)) return [];
+
+  const accessibleRules = collectAccessibleCssStyleRules();
+  if (accessibleRules.length === 0) return [];
+
+  const currentTextRgb = parseRGB(window.getComputedStyle(element).color);
+  const currentBackgroundRgb = getEffectiveBackgroundColor(element);
+  const snapshots = [];
+
+  for (const stateDefinition of CONTRAST_STATE_DEFINITIONS) {
+    if (typeof stateDefinition.isRelevantFor === "function" && !stateDefinition.isRelevantFor(stateOwner)) {
+      continue;
+    }
+
+    const stateOverrides = collectContrastStateOverrides(element, stateDefinition, accessibleRules);
+    if (stateOverrides.size === 0) continue;
+
+    const snapshot = measureContrastStateSnapshot(element, stateOverrides);
+    if (!snapshot) continue;
+
+    const changed = rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
+      || rgbDistanceSquared(snapshot.backgroundRgb, currentBackgroundRgb) !== 0;
+
+    if (!changed) continue;
+
+    snapshots.push({
+      name: stateDefinition.name,
+      textRgb: snapshot.textRgb,
+      backgroundRgb: snapshot.backgroundRgb
+    });
+  }
+
+  return snapshots;
 }
 
 function clampColorChannel(value) {
@@ -865,6 +1237,25 @@ function hasDirectReadableText(element) {
   }
 
   return false;
+}
+
+function hasContrastReadableText(element, preferDescendants = false) {
+  if (!(element instanceof Element)) return false;
+
+  if (element instanceof HTMLInputElement) {
+    const type = String(element.type || "text").toLowerCase();
+    if (["button", "submit", "reset"].includes(type)) {
+      return String(element.value || "").trim().length > 0;
+    }
+  }
+
+  if (element instanceof HTMLSelectElement) {
+    return String(element.selectedOptions?.[0]?.textContent || "").trim().length > 0;
+  }
+
+  return preferDescendants
+    ? String(element.textContent || "").trim().length > 0
+    : hasDirectReadableText(element);
 }
 
 function getContrastAuditTarget(element) {
@@ -1573,11 +1964,11 @@ function buildHeadingFixSuggestions(title) {
     return [
       {
         heading: "Native heading example",
-        code: `<main id="pageContentWrapper">\n  <h1>${pageTitle}</h1>\n  ...\n</main>`
+        code: `<main id="maincontent">\n  <h1>${pageTitle}</h1>\n  ...\n</main>`
       },
       {
         heading: "ARIA heading example",
-        code: `<main id="pageContentWrapper">\n  <div role="heading" aria-level="1">${pageTitle}</div>\n  ...\n</main>`
+        code: `<main id="maincontent">\n  <div role="heading" aria-level="1">${pageTitle}</div>\n  ...\n</main>`
       }
     ];
   }
@@ -1715,11 +2106,11 @@ function buildMainLandmarkFixSuggestions() {
   return [
     {
       heading: "Use a native main landmark",
-      code: `<main id="pageContentWrapper">\n  ...\n</main>`
+      code: `<main id="maincontent">\n  ...\n</main>`
     },
     {
       heading: "Fallback role main example",
-      code: `<div id="pageContentWrapper" role="main">\n  ...\n</div>`
+      code: `<div id="maincontent" role="main">\n  ...\n</div>`
     }
   ];
 }
@@ -1727,12 +2118,12 @@ function buildMainLandmarkFixSuggestions() {
 function buildSkipLinkFixSuggestions() {
   return [
     {
-      heading: "Skip link plus main target",
-      code: `<a href="#pageContentWrapper" class="visually-hidden-focusable">Skip to main content</a>\n<main id="pageContentWrapper">\n  ...\n</main>`
+      heading: "Preferred: skip link to a native main element",
+      code: `<a href="#maincontent" class="visually-hidden-focusable">Skip to main content</a>\n<main id="maincontent">\n  ...\n</main>`
     },
     {
-      heading: "Role main fallback with skip target",
-      code: `<a href="#pageContentWrapper" class="visually-hidden-focusable">Skip to main content</a>\n<div id="pageContentWrapper" role="main">\n  ...\n</div>`
+      heading: "Fallback: role main with an explicit target id",
+      code: `<a href="#maincontent" class="visually-hidden-focusable">Skip to main content</a>\n<div id="maincontent" role="main">\n  ...\n</div>`
     }
   ];
 }
@@ -1799,6 +2190,75 @@ function getCustomMainLandmarkCandidate() {
     const contentBlockCount = element.querySelectorAll("p, section, article, table, form, ul, ol").length;
     return hasHeading && contentBlockCount >= 2;
   }) || null;
+}
+
+function getDeclaredMainContentRegion() {
+  return document.querySelector("main, [role='main']") || null;
+}
+
+function getSkipLinkName(link) {
+  if (!(link instanceof Element)) return "";
+
+  return [
+    getVisibleControlText(link),
+    link.getAttribute("aria-label"),
+    getReferencedTextContent(link.getAttribute("aria-labelledby")),
+    link.getAttribute("title")
+  ].find((value) => typeof value === "string" && value.trim().length > 0) || "";
+}
+
+function isSkipTargetTiedToMain(target, mainContent) {
+  if (!(target instanceof Element) || !(mainContent instanceof Element)) return false;
+
+  if (target === mainContent) return true;
+
+  const mainId = String(mainContent.getAttribute("id") || "").trim();
+  if (mainId && target.id === mainId) return true;
+
+  return false;
+}
+
+function hasValidSkipToMainLink(links, mainContent) {
+  const fragmentLinks = Array.isArray(links) ? links : [];
+
+  return fragmentLinks.some((link) => {
+    if (!(link instanceof HTMLAnchorElement)) return false;
+    if (isSmlcOwnedElement(link) || isHiddenFromAllUsers(link)) return false;
+
+    const href = String(link.getAttribute("href") || "").trim();
+    if (href.length <= 1) return false;
+
+    let targetId = "";
+    if (href.startsWith("#")) {
+      targetId = href.slice(1);
+    } else {
+      try {
+        const parsedUrl = new URL(link.href, window.location.href);
+        if (parsedUrl.origin !== window.location.origin
+          || parsedUrl.pathname !== window.location.pathname
+          || parsedUrl.search !== window.location.search) {
+          return false;
+        }
+        targetId = parsedUrl.hash.startsWith("#") ? parsedUrl.hash.slice(1) : "";
+      } catch {
+        return false;
+      }
+    }
+
+    if (!targetId) return false;
+    const target = document.getElementById(targetId);
+    if (!(target instanceof Element)) return false;
+
+    const linkName = getSkipLinkName(link).toLowerCase();
+    if (!/(skip|bypass)/.test(linkName)) return false;
+
+    if (!(mainContent instanceof Element)) return false;
+    if (mainContent.contains(link)) return false;
+    const position = link.compareDocumentPosition(mainContent);
+    if (!(position & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+
+    return isSkipTargetTiedToMain(target, mainContent);
+  });
 }
 
 function buildEmbeddedContentFixSuggestions(title, element) {
@@ -1905,6 +2365,20 @@ function buildButtonLabelFixSuggestions(element) {
     {
       heading: "Visible text button example",
       code: `<button type="button">Describe button action</button>`
+    }
+  ];
+}
+
+function buildDuplicateSrOnlyButtonLabelFixSuggestions(element) {
+  const visibleText = escapeHtml(getVisibleNameBearingText(element) || "Save");
+  return [
+    {
+      heading: "Non-icon reactive button example",
+      code: `<button type="button" class="sml-reactive-button">${visibleText}</button>`
+    },
+    {
+      heading: "If the DOM still shows both labels after the source is fixed",
+      code: `Visible text and screen-reader-only text should not both render for the same non-icon button. If the component source already emits only one label source, refresh or rebuild the client bundle before treating the component as still broken.`
     }
   ];
 }
@@ -2253,7 +2727,7 @@ function buildBrokenLinkFixSuggestions(title, element) {
       },
       {
         heading: "Or update the href to a valid fragment target",
-        code: `<a href="#mainContent">Skip to main content</a>\n<main id="mainContent">...</main>`
+        code: `<a href="#maincontent">Skip to main content</a>\n<main id="maincontent">...</main>`
       }
     ];
   }
@@ -2775,7 +3249,7 @@ function getHeadingStructureFixContent(normalizedTitle, element) {
 }
 
 function getLandmarkFixContent(normalizedTitle) {
-  if (["Missing Main Content Region", "Missing Main Landmark"].includes(normalizedTitle)) {
+  if (["No Main Content", "Missing Main Content Region", "Missing Main Landmark"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Add a main content landmark",
       description: "This page needs a main content region so assistive technology users can jump directly to the primary content.",
@@ -2848,7 +3322,16 @@ function getEmbeddedContentFixContent(normalizedTitle, element) {
 }
 
 function getButtonLabelFixContent(normalizedTitle, element) {
-  if (!["Icon-Only Button Missing Label", "Button Missing Text"].includes(normalizedTitle)) return null;
+  if (!["Icon-Only Button Missing Label", "Button Missing Text", "Duplicate SR-Only Button Label"].includes(normalizedTitle)) return null;
+
+  if (normalizedTitle === "Duplicate SR-Only Button Label") {
+    return {
+      heading: "Suggested Fix: Render one button label source",
+      description: "Non-icon sml-reactive-button controls should not render matching visible text and screen-reader-only text at the same time. Keep one label source for the button, and if source code already does that, treat a duplicate DOM label as stale client JavaScript first.",
+      snippets: buildDuplicateSrOnlyButtonLabelFixSuggestions(element)
+    };
+  }
+
   return {
     heading: "Suggested Fix: Label the button action",
     description: "Buttons need an accessible name. Use visible text when possible, or add aria-label when the button is icon-only.",
@@ -3184,6 +3667,7 @@ function showComplianceFixModal(title, element) {
   modal.appendChild(footer);
   backdrop.appendChild(modal);
   markSmlcElementTree(backdrop);
+  enforceSmlcPopupUntabbableSubtree(backdrop);
 
   backdrop.addEventListener("click", (event) => {
     if (event.target === backdrop) {
@@ -3303,6 +3787,7 @@ function getPlainLanguageIssueDescription(title) {
     "Duplicate ID": "More than one thing on the page is using this same ID. Labels, links, scripts, or error messages can end up pointing to the wrong thing.",
     "Duplicate ID Referenced": "This element points to an ID that belongs to more than one thing. The page may pull the wrong label or description.",
     "Accessible Name Does Not Include Visible Label": "The name read out loud does not match the words the user sees on the screen. Make the spoken name include the same visible words so everyone is talking about the same control.",
+    "Duplicate SR-Only Button Label": "This non-icon reactive button is rendering the same label twice: once visibly and once in screen-reader-only text. Keep one label source for non-icon buttons.",
     "ARIA Attribute Misspelled": "An aria- attribute is spelled wrong. Browsers and assistive tools will ignore it.",
     "Invalid Role Value": "This role name is not a real role. Assistive tools may not understand what this element is supposed to be.",
     "Heading Role Missing aria-level": "This is marked as a heading, but it does not say which heading level it is. Say whether it acts like an H1, H2, H3, and so on.",
@@ -3342,6 +3827,7 @@ function getPlainLanguageIssueDescription(title) {
     "Complex Table Missing Header Associations": "This table has grouped or spanning headers, but the cells are not explicitly tied to the right headers. Screen readers may announce the wrong context or not enough context.",
     "Possible Layout Table": "This looks like a table being used just for layout. Screen readers may still treat it like a real data table.",
     "Missing Navigation Landmark": "There is no clear navigation area for assistive tool users to jump to when they want the site's navigation.",
+    "No Main Content": "There is no clear main content area, so users may have no dependable place to land after bypassing repeated page chrome.",
     "Missing Main Landmark": "There is no clear main content area, so users may have a harder time skipping past repeated page chrome to get to the real content.",
     "Custom Navigation Container Missing Landmark": "This area already looks like navigation, but it is not marked as a navigation landmark. Users may miss it when they jump through page regions.",
     "Custom Main Content Container Missing Landmark": "This looks like the page's main content, but it is not marked as the main landmark. Users may have a harder time jumping to the real content."
@@ -3406,7 +3892,98 @@ function markSmlcElementTree(element) {
     child.dataset.smlc = "1";
   });
 
+  applySmlcDefaultTabPolicy(element);
+
   return element;
+}
+
+function applySmlcDefaultTabPolicy(element) {
+  if (!(element instanceof Element)) return element;
+
+  const applyPolicy = (node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (!node.matches("div, button")) return;
+    if (String(node.dataset.smlcAllowTabStop || "").toLowerCase() === "true") return;
+    makeSmlcControlUntabbable(node);
+  };
+
+  applyPolicy(element);
+  element.querySelectorAll("div, button").forEach((child) => applyPolicy(child));
+  return element;
+}
+
+function makeSmlcControlUntabbable(element) {
+  if (!(element instanceof HTMLElement)) return element;
+  element.setAttribute("tabindex", "-1");
+  element.tabIndex = -1;
+  return element;
+}
+
+const SMLC_POPUP_UNTABBABLE_SELECTOR = "a, button, input, select, textarea, summary, iframe, object, embed, [contenteditable='true'], [role='button'], [tabindex]";
+const SMLC_POPUP_UNTABBABLE_OBSERVERS = new WeakMap();
+
+function enforceSmlcPopupUntabbableSubtree(container) {
+  if (!(container instanceof HTMLElement)) return container;
+
+  applySmlcDefaultTabPolicy(container);
+  makeSmlcControlUntabbable(container);
+  container.querySelectorAll(SMLC_POPUP_UNTABBABLE_SELECTOR)
+    .forEach((node) => makeSmlcControlUntabbable(node));
+
+  if (!SMLC_POPUP_UNTABBABLE_OBSERVERS.has(container)) {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          enforceSmlcPopupUntabbableSubtree(node);
+        });
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+    SMLC_POPUP_UNTABBABLE_OBSERVERS.set(container, observer);
+  }
+
+  return container;
+}
+
+function removeSmlcAlertPaneFromTabOrder(container) {
+  if (!(container instanceof HTMLElement)) return container;
+
+  return enforceSmlcPopupUntabbableSubtree(container);
+}
+
+function bindInlineAlertShortcut(element, toggleButton, panesContainer) {
+  if (!(element instanceof HTMLElement)
+    || !(toggleButton instanceof HTMLButtonElement)
+    || !(panesContainer instanceof HTMLElement)
+    || element.dataset.smlcInlineAlertShortcutBound === "true") {
+    return;
+  }
+
+  element.dataset.smlcInlineAlertShortcutBound = "true";
+
+  const shortcutHintId = `${toggleButton.getAttribute("aria-controls") || createAlertId()}-shortcut`;
+  const shortcutHint = document.createElement("span");
+  shortcutHint.id = shortcutHintId;
+  shortcutHint.hidden = true;
+  shortcutHint.textContent = "Press Alt+Shift+A to review Tzedek issue details for this item.";
+  markSmlcElementTree(shortcutHint);
+  document.body.appendChild(shortcutHint);
+
+  const describedBy = String(element.getAttribute("aria-describedby") || "").trim();
+  element.setAttribute("aria-describedby", describedBy ? `${describedBy} ${shortcutHintId}` : shortcutHintId);
+  element.setAttribute("aria-keyshortcuts", "Alt+Shift+A");
+
+  element.addEventListener("keydown", (event) => {
+    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "a") {
+      stopComplianceControlEvent(event);
+      const willOpen = panesContainer.hidden;
+      if (willOpen) {
+        closeAllFloatingInlineAlertPanes(panesContainer);
+      }
+      setInlineAlertExpanded(toggleButton, panesContainer, willOpen);
+    }
+  });
 }
 
 function setSmlcOwnedHtml(element, html) {
@@ -3435,6 +4012,44 @@ function getVisibleControlText(element) {
   });
 
   return String(clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function isScreenReaderOnlyClassToken(token) {
+  const normalizedToken = String(token || "").trim().toLowerCase();
+  return ["sr-only", "sr_only", "visually-hidden", "visuallyhidden", "screen-reader-only", "screenreader-only"].includes(normalizedToken);
+}
+
+function isScreenReaderOnlyElement(element) {
+  if (!(element instanceof Element)) return false;
+  return Array.from(element.classList || []).some((token) => isScreenReaderOnlyClassToken(token));
+}
+
+function getVisibleControlTextExcludingScreenReaderOnly(element) {
+  if (!(element instanceof Element)) return "";
+
+  const clone = element.cloneNode(true);
+  if (!(clone instanceof Element)) return "";
+
+  clone.querySelectorAll("[aria-hidden='true'], [hidden], .d-none, .hidden, script, style, title").forEach((node) => {
+    node.remove();
+  });
+
+  Array.from(clone.querySelectorAll("*"))
+    .filter((node) => isScreenReaderOnlyElement(node))
+    .forEach((node) => node.remove());
+
+  return String(clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function getScreenReaderOnlyText(element) {
+  if (!(element instanceof Element)) return "";
+
+  return Array.from(element.querySelectorAll("*"))
+    .filter((node) => isScreenReaderOnlyElement(node) && !isHiddenFromAllUsers(node))
+    .map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 }
 
 function getVisibleNameBearingText(element) {
@@ -3583,6 +4198,30 @@ function getAccessibleNameOverrideDetails(element) {
   }
 
   return null;
+}
+
+function isSmlReactiveButtonElement(element) {
+  return element instanceof Element
+    && element.matches("sml-reactive-button, .sml-reactive-button, [data-sml-reactive-button='true']");
+}
+
+function getDuplicateSrOnlyButtonLabelDetails(element) {
+  if (!(element instanceof Element) || !isSmlReactiveButtonElement(element)) return null;
+
+  const visibleText = getVisibleControlTextExcludingScreenReaderOnly(element);
+  if (!visibleText) return null;
+
+  const screenReaderOnlyText = getScreenReaderOnlyText(element);
+  if (!screenReaderOnlyText) return null;
+
+  if (normalizeAccessibleNameText(visibleText) !== normalizeAccessibleNameText(screenReaderOnlyText)) {
+    return null;
+  }
+
+  return {
+    visibleText,
+    screenReaderOnlyText
+  };
 }
 
 function isSmlcOwnedElement(element) {
@@ -4155,6 +4794,7 @@ function createComplianceAlert(level, title, message, element) {
     toggleButton.setAttribute("aria-controls", paneId);
     toggleButton.setAttribute("aria-label", "Select button to review 1 issue");
     toggleButton.setAttribute("title", "Select button to review 1 issue");
+    makeSmlcControlUntabbable(toggleButton);
     setSmlcOwnedHtml(toggleButton, "<i class='bi bi-universal-access' aria-hidden='true'></i><span class='sml-compliance-alert-count' aria-hidden='true'>1</span>");
 
     panesContainer = document.createElement("div");
@@ -4185,8 +4825,15 @@ function createComplianceAlert(level, title, message, element) {
     wrapper.appendChild(toggleButton);
     markSmlcElementTree(wrapper);
     markSmlcElementTree(panesContainer);
+    removeSmlcAlertPaneFromTabOrder(panesContainer);
 
     INLINE_ALERT_WRAPPERS.set(wrapper, { wrapper, toggleButton, panesContainer });
+
+    if (mountTarget instanceof HTMLElement) {
+      bindInlineAlertShortcut(mountTarget, toggleButton, panesContainer);
+    } else if (element instanceof HTMLElement) {
+      bindInlineAlertShortcut(element, toggleButton, panesContainer);
+    }
 
     if (body && shouldUseFloatingPane) {
       body.appendChild(panesContainer);
@@ -4225,6 +4872,14 @@ function createComplianceAlert(level, title, message, element) {
       INLINE_ALERT_HOSTS.set(element, { wrapper, toggleButton, panesContainer });
     }
   }
+
+  makeSmlcControlUntabbable(toggleButton);
+  removeSmlcAlertPaneFromTabOrder(panesContainer);
+  if (mountTarget instanceof HTMLElement) {
+    bindInlineAlertShortcut(mountTarget, toggleButton, panesContainer);
+  } else if (element instanceof HTMLElement) {
+    bindInlineAlertShortcut(element, toggleButton, panesContainer);
+  }
   
   const alertDiv = document.createElement("div");
   alertDiv.id = paneId;
@@ -4238,6 +4893,7 @@ function createComplianceAlert(level, title, message, element) {
   closePaneButton.setAttribute("aria-label", "Close issue details");
   closePaneButton.setAttribute("title", "Close issue details");
   closePaneButton.textContent = "×";
+  makeSmlcControlUntabbable(closePaneButton);
   ["pointerdown", "mousedown", "mouseup", "keydown", "keyup"].forEach((eventName) => {
     closePaneButton.addEventListener(eventName, (event) => {
       stopComplianceControlEvent(event);
@@ -4276,6 +4932,7 @@ function createComplianceAlert(level, title, message, element) {
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
     moreInfoLink.textContent = "More Info";
+    makeSmlcControlUntabbable(moreInfoLink);
     alertDiv.appendChild(moreInfoLink);
   }
 
@@ -4285,11 +4942,13 @@ function createComplianceAlert(level, title, message, element) {
   issueGuideLink.target = "_blank";
   issueGuideLink.rel = "noopener noreferrer";
   issueGuideLink.textContent = "Tzedek Guide";
+  makeSmlcControlUntabbable(issueGuideLink);
   alertDiv.appendChild(issueGuideLink);
 
   applyAlertSeverityToToggle(toggleButton, level);
   maybeAppendFixButton(alertDiv, level, title, element);
   markSmlcElementTree(alertDiv);
+  removeSmlcAlertPaneFromTabOrder(alertDiv);
 
   panesContainer.appendChild(alertDiv);
   updateInlineAlertToggleCount(toggleButton, panesContainer);
@@ -4311,6 +4970,7 @@ export class smlCompliance {
     };
     
     this.alerts = [];
+    this.pageLinks = [];
     this.container = document.querySelector(this.cfg.containerSelector);
   }
 
@@ -4319,6 +4979,7 @@ export class smlCompliance {
    */
   async runCompleteAudit() {
     this.clearAlerts();
+    this.pageLinks = Array.from(document.querySelectorAll("a[href]"));
     
     const checks = [
       () => this.checkPageStructure(),
@@ -4448,13 +5109,6 @@ export class smlCompliance {
     // Viewport meta tag
     if (!document.querySelector("meta[name='viewport']")) {
       this.addAlert("warning", "Missing Viewport Meta Tag", "Viewport meta tag helps responsive design and mobile accessibility");
-    }
-
-    // Skip to main content link
-    const mainRegion = document.querySelector("[role='main'], main, #pageContentWrapper, #page-content-wrapper");
-    const hasSkipLink = !!document.querySelector("a[href='#main'], a[href='#content'], a[href='#pageContentWrapper'], a[href='#page-content-wrapper']");
-    if (!hasSkipLink && !mainRegion) {
-      this.addAlert("info", "Missing Skip to Main Content Link", "Consider adding a skip link for keyboard users", document.body);
     }
   }
 
@@ -4597,7 +5251,9 @@ export class smlCompliance {
    * Check links for accessibility
    */
   async checkLinks() {
-    const links = Array.from(document.querySelectorAll("a[href]"));
+    const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
+      ? this.pageLinks
+      : Array.from(document.querySelectorAll("a[href]"));
     const linkTextGroups = new Map();
     
     for (const link of links) {
@@ -4748,6 +5404,12 @@ export class smlCompliance {
       if (!text && !ariaLabel && !title) {
         this.addAlert("critical", "Button Missing Text", 
           `Button has no visible text, aria-label, or title`, btn);
+      }
+
+      const duplicateSrOnlyLabel = getDuplicateSrOnlyButtonLabelDetails(btn);
+      if (duplicateSrOnlyLabel) {
+        this.addAlert("error", "Duplicate SR-Only Button Label",
+          `This non-icon <code>sml-reactive-button</code> exposes visible text "${escapeHtml(duplicateSrOnlyLabel.visibleText)}" and screen-reader-only text "${escapeHtml(duplicateSrOnlyLabel.screenReaderOnlyText)}" with the same wording. Render only one label source for non-icon buttons. If the component source already does that, assume stale client JavaScript or stale hydrated DOM before concluding the component is still broken.`, btn);
       }
 
       const accessibleNameOverride = getAccessibleNameOverrideDetails(btn);
@@ -4909,18 +5571,17 @@ export class smlCompliance {
    * Check color contrast ratios
    */
   checkColorContrast() {
+    ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
     const seenTargets = new Set();
-    const textElements = Array.from(document.querySelectorAll(
-      "p, span, a, button, label, li, td, th, h1, h2, h3, h4, h5, h6, strong, em, small"
-    )).map((element) => getContrastAuditTarget(element))
+    const textElements = Array.from(document.querySelectorAll(CONTRAST_AUDIT_TEXT_SELECTOR)).map((element) => getContrastAuditTarget(element))
       .filter((element) => {
         if (!(element instanceof Element)) return false;
         if (seenTargets.has(element)) return false;
 
         const isButtonTarget = element.matches("button, [role='button']");
         const hasReadableText = isButtonTarget
-          ? (element.textContent || "").trim().length > 0
-          : hasDirectReadableText(element);
+          ? hasContrastReadableText(element, true)
+          : hasContrastReadableText(element, false);
 
         if (!hasReadableText
           || !isElementVisibleForContrastAudit(element)
@@ -4940,7 +5601,24 @@ export class smlCompliance {
       const fontWeight = window.getComputedStyle(elem).fontWeight;
       
       const textRGB = parseRGB(textColor);
-      const contrast = calculateAPCAContrast(textRGB, bgRGB);
+      const contrastSnapshots = [
+        {
+          name: "default",
+          textRgb: textRGB,
+          backgroundRgb: bgRGB
+        },
+        ...getContrastStateSnapshots(elem)
+      ].map((snapshot) => ({
+        ...snapshot,
+        contrast: calculateAPCAContrast(snapshot.textRgb, snapshot.backgroundRgb)
+      }));
+
+      const lowestContrastSnapshot = contrastSnapshots.reduce((lowest, snapshot) => {
+        if (!lowest) return snapshot;
+        return snapshot.contrast < lowest.contrast ? snapshot : lowest;
+      }, null);
+
+      const contrast = lowestContrastSnapshot?.contrast ?? calculateAPCAContrast(textRGB, bgRGB);
 
       const minContrast = this.cfg.level === "aaa" ? 7 : 4.5;
       const largeTextMinContrast = this.cfg.level === "aaa" ? 4.5 : 3;
@@ -4951,7 +5629,9 @@ export class smlCompliance {
       if (contrast < required) {
         const level = contrast < 3 ? "error" : "warning";
         const suggestionTarget = required === 4.5 ? 4.55 : required;
-        const suggestions = getContrastSuggestions(textRGB, bgRGB, suggestionTarget);
+        const auditedTextRgb = lowestContrastSnapshot?.textRgb || textRGB;
+        const auditedBackgroundRgb = lowestContrastSnapshot?.backgroundRgb || bgRGB;
+        const suggestions = getContrastSuggestions(auditedTextRgb, auditedBackgroundRgb, suggestionTarget);
         const sampledTargetId = ensureAuditTargetId(elem);
         const renderedContrastHexes = new Set();
         const formatContrastHex = (hex) => {
@@ -4960,25 +5640,30 @@ export class smlCompliance {
           renderedContrastHexes.add(normalizedHex);
           return formatHexWithSwatch(normalizedHex, sampledTargetId, allowInteractive);
         };
-        const currentForeground = rgbToHex(textRGB);
-        const currentBackground = rgbToHex(bgRGB);
+        const currentForeground = rgbToHex(auditedTextRgb);
+        const currentBackground = rgbToHex(auditedBackgroundRgb);
         const elementDescriptor = describeElementForContrast(elem);
         const isButtonTarget = elem.matches("button, [role='button']");
-        const bootstrapSuggestion = findBestPaletteReplacement(textRGB, bgRGB, suggestionTarget, BOOTSTRAP_COLOR_PALETTE);
-        const legacyThemeSuggestion = findBestPaletteReplacement(textRGB, bgRGB, suggestionTarget, LEGACY_THEME_COLOR_PALETTE);
+        const bootstrapSuggestion = findBestPaletteReplacement(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, BOOTSTRAP_COLOR_PALETTE);
+        const legacyThemeSuggestion = findBestPaletteReplacement(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, LEGACY_THEME_COLOR_PALETTE);
         const bootstrapButtonSuggestions = isButtonTarget
-          ? findClosestButtonStyles(textRGB, bgRGB, suggestionTarget, BOOTSTRAP_BUTTON_PALETTE, 3)
+          ? findClosestButtonStyles(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, BOOTSTRAP_BUTTON_PALETTE, 3)
           : [];
         const smlButtonSuggestions = isButtonTarget
-          ? findClosestButtonStyles(textRGB, bgRGB, suggestionTarget, SML_BUTTON_PALETTE, 3)
+          ? findClosestButtonStyles(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, SML_BUTTON_PALETTE, 3)
           : [];
         const balancedNote = suggestions.balanced.note
           ? `${suggestions.balanced.note}<br>`
           : "";
+        const worstStateLabel = lowestContrastSnapshot?.name || "default";
+        const stateSummary = contrastSnapshots.length > 1
+          ? `<br>State checks: ${contrastSnapshots.map((snapshot) => `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1`).join(" | ")}`
+          : "";
         const baseIntro =
           `Your Foreground ${formatContrastHex(currentForeground)} and Background ${formatContrastHex(currentBackground)} ` +
-          `have a ratio of ${contrast.toFixed(1)}:1, which is less than ${required}:1. You can use these to correct: ` +
+          `have a ratio of ${contrast.toFixed(1)}:1 in the <code>${escapeHtml(worstStateLabel)}</code> state, which is less than ${required}:1. You can use these to correct: ` +
           `Sampled from ${elementDescriptor}. Element type: <code>${isButtonTarget ? "button/control" : "text content"}</code>.` +
+          stateSummary +
           `<br>` +
           (suggestionTarget > required
             ? `Suggestions target ${suggestionTarget}:1 for safety where possible. `
@@ -5381,17 +6066,21 @@ export class smlCompliance {
    * Check for skip links
    */
   checkSkipLinks() {
-    const skipLink = document.querySelector("a[href='#main'], a[href='#content'], a[href='#skip'], a[href='#pageContentWrapper']");
-    if (!skipLink) {
-      this.addAlert("info", "Missing Skip Link", 
-        `Add a keyboard-first skip link near the start of page content: <code>&lt;a href="#pageContentWrapper" class="visually-hidden-focusable"&gt;Skip to main content&lt;/a&gt;</code>. Ensure the destination exists as <code>id="pageContentWrapper"</code> on <code>&lt;main&gt;</code> or an element with <code>role="main"</code>.`,
-        document.body);
+    const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
+      ? this.pageLinks
+      : Array.from(document.querySelectorAll("a[href]"));
+    const mainContent = getDeclaredMainContentRegion();
+    const hasSkipLink = hasValidSkipToMainLink(links, mainContent);
+
+    if (!mainContent) {
+      this.addAlert("info", "No Main Content", 
+        `Page should have one primary content region using <code>&lt;main&gt;</code> or an element with <code>role="main"</code>.`, document.body);
     }
 
-    const mainContent = document.querySelector("main, [role='main'], #main, #content, #pageContentWrapper") || getCustomMainLandmarkCandidate();
-    if (!mainContent) {
-      this.addAlert("info", "Missing Main Content Region", 
-        `Page should have a <main> element or role="main"`, document.body);
+    if (!hasSkipLink) {
+      this.addAlert("info", "Missing Skip to Main Content Link", 
+        `Add a keyboard-first skip link near the start of page content: <code>&lt;a href="#maincontent" class="visually-hidden-focusable"&gt;Skip to main content&lt;/a&gt;</code>. Prefer a native <code>&lt;main id="maincontent"&gt;</code> target. For older patterns, use an element with <code>role="main"</code> and the same target id.`,
+        document.body);
     }
   }
 
