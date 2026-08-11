@@ -168,7 +168,10 @@ function injectTzedekRunner(runnerUrl, themeUrl, releaseVersion) {
     moduleUrl: runnerUrl.replace(/smlComplianceRunner\.js(?:\?.*)?$/, "smlCompliance.js"),
     bootstrapIconsHref: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
     assetBaseUrl,
-    releaseVersion: typeof releaseVersion === "string" && releaseVersion.trim().length > 0 ? releaseVersion : (currentConfig?.releaseVersion || "")
+    releaseVersion: typeof releaseVersion === "string" && releaseVersion.trim().length > 0 ? releaseVersion : (currentConfig?.releaseVersion || ""),
+    repositoryUrl: typeof currentConfig?.repositoryUrl === "string" && currentConfig.repositoryUrl.trim().length > 0
+      ? currentConfig.repositoryUrl.trim()
+      : "https://github.com/zodiac1913/Tzedek"
   };
 
   const link = document.createElement("link");
