@@ -153,7 +153,6 @@ const MORE_INFO_URL_BY_TITLE = {
   "Multiple Level 1 Headings": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/Heading_Elements",
   "Heading Level Skip": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/Heading_Elements",
   "Empty Heading": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/Heading_Elements",
-  "Consider ARIA Heading Roles": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/heading_role",
   "Missing Alt Text": "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/alt",
   "Presentation Role Conflicts with Alt Text": "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/alt",
   "Empty Alt Text": "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/alt",
@@ -247,7 +246,6 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Multiple Level 1 Headings": "HTML headings accessibility",
   "Heading Level Skip": "HTML heading hierarchy accessibility",
   "Empty Heading": "HTML headings accessibility",
-  "Consider ARIA Heading Roles": "ARIA heading role aria-level accessibility",
   "Missing Alt Text": "HTML img alt attribute accessibility",
   "Presentation Role Conflicts with Alt Text": "HTML img alt attribute accessibility",
   "Empty Alt Text": "HTML img alt attribute accessibility",
@@ -2016,11 +2014,11 @@ function buildHeadingFixSuggestions(title) {
   if (title === "No Headings Found") {
     return [
       {
-        heading: "Native heading example",
+        heading: "Level 1 heading example using h1",
         code: `<main id="maincontent">\n  <h1>${pageTitle}</h1>\n  ...\n</main>`
       },
       {
-        heading: "ARIA heading example",
+        heading: "Level 1 heading example using role and aria-level",
         code: `<main id="maincontent">\n  <div role="heading" aria-level="1">${pageTitle}</div>\n  ...\n</main>`
       }
     ];
@@ -2028,11 +2026,11 @@ function buildHeadingFixSuggestions(title) {
 
   return [
     {
-      heading: "Add a single level 1 heading",
+      heading: "Add a level 1 heading using h1",
       code: `<h1>${pageTitle}</h1>`
     },
     {
-      heading: "ARIA level 1 heading alternative",
+      heading: "Add a level 1 heading using role and aria-level",
       code: `<div role="heading" aria-level="1">${pageTitle}</div>`
     }
   ];
@@ -2094,6 +2092,121 @@ function getHeadingLevelFromElement(element) {
   return Number.isNaN(ariaLevel) || ariaLevel < 1 ? 2 : ariaLevel;
 }
 
+function getHeadingKindLabel(heading) {
+  if (!heading) return "";
+  return heading.type === "aria"
+    ? `role="heading" aria-level="${heading.level}"`
+    : `<h${heading.level}>`;
+}
+
+function describeHeadingForAudit(heading) {
+  if (!heading || !(heading.element instanceof Element)) return "";
+
+  const element = heading.element;
+  const tagName = element.tagName.toLowerCase();
+  const idPart = element.id ? `#${element.id}` : "";
+  const classPart = Array.from(element.classList || []).slice(0, 2).map((name) => `.${name}`).join("");
+  const selectorHint = `${tagName}${idPart}${classPart}`;
+  const headingText = String(heading.text || "").trim() || "(empty text)";
+  return `<code>${escapeHtml(selectorHint)}</code> using <code>${escapeHtml(getHeadingKindLabel(heading))}</code> with text "${escapeHtml(headingText)}"`;
+}
+
+function collectVisibleHeadingsForAudit() {
+  const nativeHeadings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+    .filter((heading) => isHeadingVisibleForAudit(heading));
+  const ariaHeadings = Array.from(document.querySelectorAll("[role='heading']"))
+    .filter((heading) => isHeadingVisibleForAudit(heading));
+
+  const headings = nativeHeadings.map((heading) => ({
+    element: heading,
+    level: Number.parseInt(heading.tagName[1], 10),
+    type: "native",
+    text: heading.textContent.trim()
+  }));
+
+  for (const ariaHeading of ariaHeadings) {
+    const ariaLevel = Number.parseInt(String(ariaHeading.getAttribute("aria-level") || "1"), 10);
+    if (ariaLevel >= 1 && ariaLevel <= 6) {
+      headings.push({
+        element: ariaHeading,
+        level: ariaLevel,
+        type: "aria",
+        text: ariaHeading.textContent.trim()
+      });
+    }
+  }
+
+  return {
+    nativeHeadings,
+    ariaHeadings,
+    headings
+  };
+}
+
+function reportLevelOneHeadingIssues(compliance, headings) {
+  const levelOneHeadings = headings.filter((heading) => heading.level === 1);
+  if (levelOneHeadings.length === 0) {
+    compliance.addAlert("critical", "Missing Level 1 Heading",
+      "Page should have a level 1 heading.",
+      document.body);
+    return;
+  }
+
+  if (levelOneHeadings.length > 1) {
+    const listedLevel1s = levelOneHeadings
+      .map((heading, index) => `${index + 1}. ${describeHeadingForAudit(heading)}`)
+      .join("<br>");
+    compliance.addAlert("warning", "Multiple Level 1 Headings",
+      `Page should have only one level 1 heading for clarity.<br><strong>Detected level 1 headings:</strong><br>${listedLevel1s}`,
+      levelOneHeadings[0].element);
+  }
+}
+
+function getHeadingsInDocumentOrder(headings) {
+  const sortedHeadings = [...headings];
+  sortedHeadings.sort((a, b) => {
+    if (a.element === b.element) return 0;
+    const relation = a.element.compareDocumentPosition(b.element);
+    if (relation & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (relation & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  });
+  return sortedHeadings;
+}
+
+function reportHeadingLevelSkips(compliance, headings) {
+  let lastLevel = null;
+  for (const heading of headings) {
+    if (lastLevel !== null && heading.level > lastLevel + 1) {
+      compliance.addAlert("warning", "Heading Level Skip",
+        buildHeadingLevelSkipMessage(lastLevel, heading), heading.element);
+    }
+    lastLevel = heading.level;
+  }
+}
+
+function reportEmptyHeadings(compliance, headings) {
+  for (const heading of headings) {
+    if (!heading.text) {
+      compliance.addAlert("error", "Empty Heading", `${getHeadingKindLabel(heading)} is empty`, heading.element);
+    }
+  }
+}
+
+function buildHeadingLevelSkipMessage(previousLevel, heading) {
+  const missingLevels = [];
+  for (let level = previousLevel + 1; level < heading.level; level += 1) {
+    missingLevels.push(`h${level}`);
+  }
+
+  const currentHeadingLabel = heading.type === "aria"
+    ? `role="heading" aria-level="${heading.level}"`
+    : `h${heading.level}`;
+  const missingLevelsText = missingLevels.map((level) => `<code>${level}</code>`).join(", ");
+
+  return `This page jumps from <code>h${previousLevel}</code> to <code>${escapeHtml(currentHeadingLabel)}</code> without an intervening ${missingLevelsText}. Headings should move down one level at a time so users can follow the page outline. If this section belongs directly under the previous heading, change it to the next heading level.`;
+}
+
 function buildHeadingStructureFixSuggestions(title, element) {
   const normalizedTitle = String(title || "").trim();
   const headingText = escapeHtml(String(element?.textContent || "Section heading").trim() || "Section heading");
@@ -2103,11 +2216,11 @@ function buildHeadingStructureFixSuggestions(title, element) {
   if (normalizedTitle === "Heading Level Skip") {
     return [
       {
-        heading: "Move to the next heading level instead of skipping",
+        heading: "Next heading level example using h tags",
         code: `<h${correctedLevel}>${headingText}</h${correctedLevel}>`
       },
       {
-        heading: "If you must use a custom heading, give it the corrected aria-level",
+        heading: "Next heading level example using role and aria-level",
         code: `<div role="heading" aria-level="${correctedLevel}">${headingText}</div>`
       }
     ];
@@ -2128,11 +2241,11 @@ function buildHeadingStructureFixSuggestions(title, element) {
 
   return [
     {
-      heading: "Prefer a native heading element",
+      heading: "Heading example using h tags",
       code: `<h${Math.min(Math.max(currentLevel, 1), 6)}>${headingText}</h${Math.min(Math.max(currentLevel, 1), 6)}>`
     },
     {
-      heading: "If you keep a custom heading, pair the role with aria-level",
+      heading: "Heading example using role and aria-level",
       code: `<div role="heading" aria-level="${Math.min(Math.max(currentLevel, 1), 6)}">${headingText}</div>`
     }
   ];
@@ -2684,16 +2797,12 @@ function buildLiveRegionFixSuggestions(title, element) {
 function buildSemanticControlFixSuggestions(title, element) {
   if (title === "Accessible Name Does Not Include Visible Label") {
     const visibleText = escapeHtml(getVisibleControlText(element) || "Visible control text");
-    return [
-      {
-        heading: "Keep one visible label source and match the accessible name",
-        code: `<button type="button" aria-label="${visibleText}">\n  <i class="bi bi-play-circle" aria-hidden="true"></i>\n  <span>${visibleText}</span>\n</button>`
-      },
-      {
-        heading: "Add extra context after the visible label when needed",
-        code: `<button type="button" aria-label="${visibleText} for current record">${visibleText}</button>`
-      }
-    ];
+    const overrideDetails = getAccessibleNameOverrideDetails(element);
+    const mismatchContext = getAccessibleNameMismatchContext(element);
+    if (overrideDetails?.sourceAttribute === "aria-labelledby") {
+      return buildAriaLabelledbyMismatchFixSuggestions(element, visibleText, mismatchContext);
+    }
+    return buildAriaLabelMismatchFixSuggestions(visibleText, mismatchContext);
   }
 
   if (title === "Button Role Missing Keyboard Handler" || title === "Button Role Keyboard Handler Not Statically Verifiable") {
@@ -2764,6 +2873,89 @@ function buildSemanticControlFixSuggestions(title, element) {
     {
       heading: "If the control navigates, use a native link instead",
       code: `<a href="/target">Open destination</a>`
+    }
+  ];
+}
+
+function buildAriaLabelledbyMismatchFixSuggestions(element, visibleText, mismatchContext) {
+  const labelIdBase = String(element?.getAttribute?.("id") || "control").trim() || "control";
+  const visibleLabelId = `${labelIdBase}VisibleLabel`;
+
+  if (mismatchContext.isSummary) {
+    return [
+      {
+        heading: "Point the summary at the same words users see",
+        code: `<details>\n  <span id="${escapeAttribute(visibleLabelId)}">${visibleText}</span>\n  <summary aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</summary>\n  <p>Billing policy details</p>\n</details>`
+      },
+      {
+        heading: "If you add context, keep the visible summary words first",
+        code: `<details>\n  <span id="${escapeAttribute(visibleLabelId)}">${visibleText} for this account</span>\n  <summary aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</summary>\n  <p>Billing policy details</p>\n</details>`
+      }
+    ];
+  }
+
+  if (mismatchContext.isCustomRole) {
+    const roleAttribute = escapeAttribute(mismatchContext.role || "button");
+    return [
+      {
+        heading: "Reference text that starts with the visible custom-control label",
+        code: `<span id="${escapeAttribute(visibleLabelId)}">${visibleText}</span>\n<div role="${roleAttribute}" tabindex="0" aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</div>`
+      },
+      {
+        heading: "If you need extra context, append it after the visible words",
+        code: `<span id="${escapeAttribute(visibleLabelId)}">${visibleText} for current record</span>\n<div role="${roleAttribute}" tabindex="0" aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</div>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Reference the visible label text directly",
+      code: `<span id="${escapeAttribute(visibleLabelId)}">${visibleText}</span>\n<button type="button" aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</button>`
+    },
+    {
+      heading: "If you need extra context, keep the visible words first",
+      code: `<span id="${escapeAttribute(visibleLabelId)}">${visibleText} for current record</span>\n<button type="button" aria-labelledby="${escapeAttribute(visibleLabelId)}">${visibleText}</button>`
+    }
+  ];
+}
+
+function buildAriaLabelMismatchFixSuggestions(visibleText, mismatchContext) {
+  if (mismatchContext.isSummary) {
+    return [
+      {
+        heading: "Keep the summary label in sync with the visible disclosure text",
+        code: `<details>\n  <summary aria-label="${visibleText}">${visibleText}</summary>\n  <p>Billing policy details</p>\n</details>`
+      },
+      {
+        heading: "If you need more context, add it after the visible summary words",
+        code: `<details>\n  <summary aria-label="${visibleText} for this account">${visibleText}</summary>\n  <p>Billing policy details</p>\n</details>`
+      }
+    ];
+  }
+
+  if (mismatchContext.isCustomRole) {
+    const roleAttribute = escapeAttribute(mismatchContext.role || "button");
+    return [
+      {
+        heading: "Keep the custom control's label aligned with the visible text",
+        code: `<div role="${roleAttribute}" tabindex="0" aria-label="${visibleText}">${visibleText}</div>`
+      },
+      {
+        heading: "If you need extra context, add it after the visible words",
+        code: `<div role="${roleAttribute}" tabindex="0" aria-label="${visibleText} for current record">${visibleText}</div>`
+      }
+    ];
+  }
+
+  return [
+    {
+      heading: "Keep one visible label source and match the accessible name",
+      code: `<button type="button" aria-label="${visibleText}">\n  <i class="bi bi-play-circle" aria-hidden="true"></i>\n  <span>${visibleText}</span>\n</button>`
+    },
+    {
+      heading: "Add extra context after the visible label when needed",
+      code: `<button type="button" aria-label="${visibleText} for current record">${visibleText}</button>`
     }
   ];
 }
@@ -2873,30 +3065,99 @@ function isPossibleLayoutTable(table) {
   return Boolean(table.querySelector("form, input, select, textarea, button, nav, section, article, aside, .row, .col"));
 }
 
-function hasComplexTableStructure(table) {
-  if (!(table instanceof HTMLTableElement)) return false;
+function getPositiveTableSpan(cell, attributeName) {
+  const parsed = Number.parseInt(String(cell?.getAttribute?.(attributeName) || "1"), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
 
-  if (table.querySelector("th[colspan], th[rowspan], td[colspan], td[rowspan]")) {
-    const spanningCell = table.querySelector("th[colspan], th[rowspan], td[colspan], td[rowspan]");
-    const colspan = Number.parseInt(spanningCell?.getAttribute("colspan") || "1", 10);
-    const rowspan = Number.parseInt(spanningCell?.getAttribute("rowspan") || "1", 10);
-    if (colspan > 1 || rowspan > 1) {
-      return true;
-    }
+function getTableHeaderReferenceIds(cell) {
+  return String(cell?.getAttribute?.("headers") || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function getTableCellPreview(cell) {
+  const normalized = String(cell?.textContent || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "blank cell";
+  return normalized.length > 32 ? `${normalized.slice(0, 29)}...` : normalized;
+}
+
+function formatTableReasonList(reasons) {
+  if (!Array.isArray(reasons) || reasons.length === 0) return "complex header structure";
+  if (reasons.length === 1) return reasons[0];
+  if (reasons.length === 2) return `${reasons[0]} and ${reasons[1]}`;
+  return `${reasons.slice(0, -1).join(", ")}, and ${reasons.at(-1)}`;
+}
+
+// Keep simple tables on the fast path and only do deeper scrutiny when the
+// markup shows signs of grouped or layered header relationships.
+function getComplexTableAnalysis(table, summary = getTableStructureSummary(table)) {
+  if (!(table instanceof HTMLTableElement)) return null;
+
+  const reasons = [];
+  const spanningCells = Array.from(table.querySelectorAll("th[colspan], th[rowspan], td[colspan], td[rowspan]"))
+    .filter((cell) => getPositiveTableSpan(cell, "colspan") > 1 || getPositiveTableSpan(cell, "rowspan") > 1);
+  if (spanningCells.length > 0) {
+    reasons.push("spanning cells");
   }
 
   const theadRows = table.querySelectorAll("thead tr").length;
-  return theadRows > 1;
-}
+  if (theadRows > 1) {
+    reasons.push("multiple header rows");
+  }
 
-function hasExplicitTableHeaderAssociations(table, headerCells) {
-  if (!(table instanceof HTMLTableElement)) return false;
-
-  if (table.querySelector("td[headers]")) return true;
-  return headerCells.some((header) => {
+  const groupScopeHeaders = summary.headerCells.filter((header) => {
     const scope = String(header.getAttribute("scope") || "").trim().toLowerCase();
     return scope === "colgroup" || scope === "rowgroup";
   });
+  if (groupScopeHeaders.length > 0) {
+    reasons.push("group scopes");
+  }
+
+  const dataCells = Array.from(table.querySelectorAll("td")).filter((cell) => cell.closest("table") === table);
+  const mappedCells = [];
+  const invalidHeaderReferenceCells = [];
+
+  for (const cell of dataCells) {
+    const headerIds = getTableHeaderReferenceIds(cell);
+    if (headerIds.length === 0) continue;
+
+    mappedCells.push(cell);
+    const invalidIds = headerIds.filter((id) => {
+      const referenced = document.getElementById(id);
+      return !(referenced instanceof HTMLTableCellElement)
+        || String(referenced.tagName || "").toLowerCase() !== "th"
+        || referenced.closest("table") !== table;
+    });
+
+    if (invalidIds.length > 0) {
+      invalidHeaderReferenceCells.push({ cell, invalidIds });
+    }
+  }
+
+  if (mappedCells.length > 0) {
+    reasons.push("explicit header mappings");
+  }
+
+  if (reasons.length === 0 || dataCells.length === 0) {
+    return null;
+  }
+
+  const hasGroupScopes = groupScopeHeaders.length > 0;
+  let missingAssociationCells = [];
+
+  if (mappedCells.length === 0 && !hasGroupScopes) {
+    missingAssociationCells = dataCells;
+  } else if (mappedCells.length > 0 && !hasGroupScopes) {
+    missingAssociationCells = dataCells.filter((cell) => getTableHeaderReferenceIds(cell).length === 0);
+  }
+
+  return {
+    reasons: Array.from(new Set(reasons)),
+    invalidHeaderReferenceCells,
+    missingAssociationCells
+  };
 }
 
 function buildTableFixSuggestions(title, element) {
@@ -3006,6 +3267,29 @@ function buildTableFixSuggestions(title, element) {
     </tr>
   </tbody>
 </table>`
+      },
+      {
+        heading: "Or use group scopes when the grouped headers are clear",
+        code: `<table>
+  <caption>Regional staffing totals</caption>
+  <thead>
+    <tr>
+      <th scope="col">Region</th>
+      <th scope="colgroup" colspan="2">Open findings</th>
+    </tr>
+    <tr>
+      <th scope="col">Critical</th>
+      <th scope="col">Warning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">North</th>
+      <td>5</td>
+      <td>7</td>
+    </tr>
+  </tbody>
+</table>`
       }
     ];
   }
@@ -3107,11 +3391,31 @@ function reportTableHeaderScopeIssues(compliance, headerCells) {
 }
 
 function reportComplexTableAssociationIssues(compliance, table, summary, likelyDataTable) {
-  if (!likelyDataTable || !hasComplexTableStructure(table)) return;
-  if (hasExplicitTableHeaderAssociations(table, summary.headerCells)) return;
+  if (!likelyDataTable) return;
 
-  compliance.addAlert("warning", "Complex Table Missing Header Associations",
-    `This data table has grouped or spanning headers. Add explicit associations with headers/id or group scopes so assistive technology can map each data cell to the right headings.`, table);
+  const analysis = getComplexTableAnalysis(table, summary);
+  if (!analysis) return;
+
+  const reasonText = formatTableReasonList(analysis.reasons);
+
+  if (analysis.invalidHeaderReferenceCells.length > 0) {
+    const firstInvalid = analysis.invalidHeaderReferenceCells[0];
+    const invalidIdList = firstInvalid.invalidIds.join(", ");
+    const invalidCount = analysis.invalidHeaderReferenceCells.length;
+    const invalidCellLabel = getTableCellPreview(firstInvalid.cell);
+    const cellPhrase = invalidCount === 1 ? "data cell uses" : "data cells use";
+    compliance.addAlert("warning", "Complex Table Missing Header Associations",
+      `This complex data table uses ${reasonText}. ${invalidCount} ${cellPhrase} headers references that do not point to header cells in this table. Example cell "${invalidCellLabel}" references: ${invalidIdList}.`, firstInvalid.cell);
+    return;
+  }
+
+  if (analysis.missingAssociationCells.length > 0) {
+    const missingCount = analysis.missingAssociationCells.length;
+    const missingCellLabel = getTableCellPreview(analysis.missingAssociationCells[0]);
+    const cellWord = missingCount === 1 ? "cell is" : "cells are";
+    compliance.addAlert("warning", "Complex Table Missing Header Associations",
+      `This complex data table uses ${reasonText}. ${missingCount} data ${cellWord} not explicitly tied to the right headers. Add headers/id mappings or group scopes so each data cell keeps dependable row and column context. Example cell: "${missingCellLabel}".`, table);
+  }
 }
 
 function reportPossibleLayoutTableIssue(compliance, table, likelyDataTable) {
@@ -3195,11 +3499,11 @@ function buildAriaMarkupFixSuggestions(title, element) {
   if (["Heading Role Missing aria-level", "Invalid aria-level Value"].includes(normalizedTitle)) {
     return [
       {
-        heading: "Define a valid heading level",
+        heading: "Heading role example with a valid aria-level",
         code: `<div role="heading" aria-level="2">Section heading</div>`
       },
       {
-        heading: "Prefer native heading markup when practical",
+        heading: "Equivalent level 2 heading using h2",
         code: `<h2>Section heading</h2>`
       }
     ];
@@ -3297,10 +3601,10 @@ function getPageHeadingFixContent(normalizedTitle) {
 }
 
 function getHeadingStructureFixContent(normalizedTitle, element) {
-  if (!["Heading Level Skip", "Empty Heading", "Consider ARIA Heading Roles"].includes(normalizedTitle)) return null;
+  if (!["Heading Level Skip", "Empty Heading"].includes(normalizedTitle)) return null;
   return {
     heading: "Suggested Fix: Repair the heading structure",
-    description: "Headings should have real text and move through the outline one level at a time so users can understand page structure quickly.",
+    description: "Headings should have real text and move through the outline one level at a time. If a page goes from H1 to H3, add or demote headings so users do not have to guess what section level was skipped.",
     snippets: buildHeadingStructureFixSuggestions(normalizedTitle, element)
   };
 }
@@ -3855,8 +4159,9 @@ function getPlainLanguageIssueDescription(title) {
     "Duplicate SR-Only Button Label": "This non-icon reactive button is rendering the same label twice: once visibly and once in screen-reader-only text. Keep one label source for non-icon buttons.",
     "ARIA Attribute Misspelled": "An aria- attribute is spelled wrong. Browsers and assistive tools will ignore it.",
     "Invalid Role Value": "This role name is not a real role. Assistive tools may not understand what this element is supposed to be.",
-    "Heading Role Missing aria-level": "This is marked as a heading, but it does not say which heading level it is. Say whether it acts like an H1, H2, H3, and so on.",
-    "Invalid aria-level Value": "This heading level is not valid. Assistive tools may place it in the wrong spot in the page outline.",
+    "Heading Role Missing aria-level": "This is marked as a heading, but the level is missing. Assistive tools need a heading level to place it correctly in the page outline.",
+    "Invalid aria-level Value": "This heading level is not valid. Assistive tools need a positive integer level to place it correctly in the page outline.",
+    "Heading Level Skip": "The heading order jumps past a level, such as H1 straight to H3. Users expect headings to step down one level at a time so the page structure makes sense.",
     "Focusable Element Hidden From Screen Readers": "Keyboard users can tab to this item, but screen readers are told to ignore it. Some users can reach it while others may not know it is there.",
     "Grouped Choices Missing Fieldset": "These choices belong to one question, but the group is not labeled as one group. Users may hear the answers without hearing the question first.",
     "Invalid aria-labelledby Reference": "The aria-labelledby points to something that is not on the page. The label may never be read out loud.",
@@ -3889,7 +4194,7 @@ function getPlainLanguageIssueDescription(title) {
     "Table Missing thead": "This table has no clear header section. That makes the table structure harder for browsers and assistive tools to understand.",
     "Table Header Missing Scope": "This header cell does not say whether it belongs to a row or a column. That makes cell relationships harder to announce clearly.",
     "Table Missing Header Cells": "This table has data cells, but it does not have the header cells users need to understand what the data means.",
-    "Complex Table Missing Header Associations": "This table has grouped or spanning headers, but the cells are not explicitly tied to the right headers. Screen readers may announce the wrong context or not enough context.",
+    "Complex Table Missing Header Associations": "This complex table needs stronger header-to-cell mapping so assistive technology can keep the row and column context straight.",
     "Possible Layout Table": "This looks like a table being used just for layout. Screen readers may still treat it like a real data table.",
     "Missing Navigation Landmark": "There is no clear navigation area for assistive tool users to jump to when they want the site's navigation.",
     "No Main Content": "There is no clear main content area, so users may have no dependable place to land after bypassing repeated page chrome.",
@@ -4265,6 +4570,89 @@ function getAccessibleNameOverrideDetails(element) {
   return null;
 }
 
+function getAccessibleNameMismatchContext(element) {
+  if (!(element instanceof Element)) {
+    return {
+      role: "",
+      controlKind: "control",
+      isSummary: false,
+      isCustomRole: false
+    };
+  }
+
+  const role = String(element.getAttribute("role") || "").trim().toLowerCase();
+  const isSummary = element.tagName === "SUMMARY";
+  const isNativeControl = isSummary || element.matches("a, button, input, select, textarea");
+  const isCustomRole = Boolean(role) && !isNativeControl;
+
+  if (isSummary) {
+    return {
+      role,
+      controlKind: "summary toggle",
+      isSummary,
+      isCustomRole
+    };
+  }
+
+  if (isCustomRole) {
+    return {
+      role,
+      controlKind: `custom role="${role}" control`,
+      isSummary,
+      isCustomRole
+    };
+  }
+
+  if (element.tagName === "A" || role === "link") {
+    return { role, controlKind: "link", isSummary, isCustomRole };
+  }
+  if (element.tagName === "BUTTON" || role === "button") {
+    return { role, controlKind: "button", isSummary, isCustomRole };
+  }
+  if (element.matches("input, select, textarea")) {
+    return { role, controlKind: "field", isSummary, isCustomRole };
+  }
+
+  return { role, controlKind: "control", isSummary, isCustomRole };
+}
+
+function getAccessibleNameMismatchMessage(element, overrideDetails) {
+  if (!(element instanceof Element) || !overrideDetails) return "";
+
+  const visibleText = overrideDetails.visibleText;
+  const accessibleName = overrideDetails.accessibleName;
+  const labelKind = overrideDetails.labelKind;
+  const sourceAttribute = overrideDetails.sourceAttribute;
+  const mismatchContext = getAccessibleNameMismatchContext(element);
+  const controlKind = mismatchContext.controlKind;
+
+  if (mismatchContext.isSummary && sourceAttribute === "aria-label") {
+    return `This summary shows ${labelKind} "${visibleText}", but aria-label changes the disclosure label to "${accessibleName}" instead. Start the summary name with the same words people see in the summary row.`;
+  }
+
+  if (mismatchContext.isSummary && sourceAttribute === "aria-labelledby") {
+    return `This summary shows ${labelKind} "${visibleText}", but aria-labelledby pulls in "${accessibleName}" instead. Point the summary at text that starts with the same disclosure words users see.`;
+  }
+
+  if (mismatchContext.isCustomRole && sourceAttribute === "aria-label") {
+    return `This ${controlKind} shows ${labelKind} "${visibleText}", but aria-label says "${accessibleName}" instead. Start the custom control name with the same visible words, then append role or state context after them if needed.`;
+  }
+
+  if (mismatchContext.isCustomRole && sourceAttribute === "aria-labelledby") {
+    return `This ${controlKind} shows ${labelKind} "${visibleText}", but aria-labelledby pulls in "${accessibleName}" instead. Reference text that begins with the same words users see on the custom control.`;
+  }
+
+  if (sourceAttribute === "aria-label") {
+    return `This ${controlKind} shows ${labelKind} "${visibleText}", but aria-label says "${accessibleName}" instead. Start aria-label with the same visible words, then add extra context after them if needed.`;
+  }
+
+  if (sourceAttribute === "aria-labelledby") {
+    return `This ${controlKind} shows ${labelKind} "${visibleText}", but the text pulled through aria-labelledby is "${accessibleName}" instead. Make the referenced label text include the same visible words users see.`;
+  }
+
+  return `This ${controlKind} shows ${labelKind} "${visibleText}", but assistive technology gets "${accessibleName}" instead. Keep the visible words inside the accessible name.`;
+}
+
 function isSmlReactiveButtonElement(element) {
   return element instanceof Element
     && element.matches("sml-reactive-button, .sml-reactive-button, [data-sml-reactive-button='true']");
@@ -4534,31 +4922,57 @@ function reportAriaLabelIssues(compliance, elem) {
   }
 }
 
+function emitAriaReferenceIssueAlerts(compliance, elem, attributeName, invalidTitle, duplicateTitle, diagnostics) {
+  if (diagnostics.repeatedRefs.size > 0) {
+    const repeatedList = Array.from(diagnostics.repeatedRefs).join(", ");
+    compliance.addAlert("warning", duplicateTitle,
+      `${attributeName} repeats the same ID reference${diagnostics.repeatedRefs.size === 1 ? "" : "s"}: ${repeatedList}. Keep each referenced ID only once.`, elem);
+  }
+
+  if (diagnostics.missingRefs.length > 0) {
+    compliance.addAlert(invalidTitle === "Invalid aria-labelledby Reference" ? "error" : "warning", invalidTitle,
+      `${attributeName} points to missing element ID${diagnostics.missingRefs.length === 1 ? "" : "s"}: ${diagnostics.missingRefs.join(", ")}. Add matching element IDs or update the reference list.`, elem);
+  }
+
+  if (diagnostics.duplicatedPageIds.length > 0) {
+    const duplicateIdList = diagnostics.duplicatedPageIds
+      .map(({ ref, count }) => `${ref} (${count} matches)`)
+      .join(", ");
+    compliance.addAlert("warning", "Duplicate ID Referenced",
+      `${attributeName} points to ID${diagnostics.duplicatedPageIds.length === 1 ? "" : "s"} that appear more than once on the page: ${duplicateIdList}. Use unique IDs so the right label or description is read.`, elem);
+  }
+}
+
 function reportAriaReferenceIssues(compliance, elem, attributeName, invalidTitle, duplicateTitle, duplicateIdCounts) {
   const rawValue = elem.getAttribute(attributeName);
   if (!rawValue) return;
 
   const refs = getIdReferenceTokens(rawValue);
   const seenRefs = new Set();
+  const diagnostics = {
+    repeatedRefs: new Set(),
+    missingRefs: [],
+    duplicatedPageIds: []
+  };
+
   for (const ref of refs) {
     if (seenRefs.has(ref)) {
-      compliance.addAlert("warning", duplicateTitle,
-        `${attributeName} references the same ID more than once: ${ref}`, elem);
+      diagnostics.repeatedRefs.add(ref);
       continue;
     }
     seenRefs.add(ref);
 
     if (!document.getElementById(ref)) {
-      compliance.addAlert(invalidTitle === "Invalid aria-labelledby Reference" ? "error" : "warning", invalidTitle,
-        `${attributeName} references non-existent element ID: ${ref}`, elem);
+      diagnostics.missingRefs.push(ref);
       continue;
     }
 
     if ((duplicateIdCounts.get(ref) || 0) > 1) {
-      compliance.addAlert("warning", "Duplicate ID Referenced",
-        `${attributeName} references id="${ref}", but that ID is duplicated on the page.`, elem);
+      diagnostics.duplicatedPageIds.push({ ref, count: duplicateIdCounts.get(ref) || 0 });
     }
   }
+
+  emitAriaReferenceIssueAlerts(compliance, elem, attributeName, invalidTitle, duplicateTitle, diagnostics);
 }
 
 function reportAriaHiddenFocusConflict(compliance, elem) {
@@ -5182,106 +5596,18 @@ export class smlCompliance {
    * Accepts both native HTML headings and ARIA role-based headings
    */
   checkHeadingHierarchy() {
-    const describeHeading = (heading) => {
-      if (!heading || !(heading.element instanceof Element)) return "";
+    const { headings } = collectVisibleHeadingsForAudit();
 
-      const element = heading.element;
-      const tagName = element.tagName.toLowerCase();
-      const idPart = element.id ? `#${element.id}` : "";
-      const classPart = Array.from(element.classList || []).slice(0, 2).map((name) => `.${name}`).join("");
-      const selectorHint = `${tagName}${idPart}${classPart}`;
-      const headingKind = heading.type === "aria"
-        ? `role="heading" aria-level="${heading.level}"`
-        : `<h${heading.level}>`;
-      const headingText = String(heading.text || "").trim() || "(empty text)";
-      return `<code>${escapeHtml(selectorHint)}</code> using <code>${escapeHtml(headingKind)}</code> with text "${escapeHtml(headingText)}"`;
-    };
-
-    // Collect both native headings and ARIA role-based headings
-    const nativeHeadings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
-      .filter((heading) => isHeadingVisibleForAudit(heading));
-    const ariaHeadings = Array.from(document.querySelectorAll("[role='heading']"))
-      .filter((heading) => isHeadingVisibleForAudit(heading));
-    
-    // Map native headings to level objects
-    const headings = nativeHeadings.map(h => ({
-      element: h,
-      level: parseInt(h.tagName[1]),
-      type: "native",
-      text: h.textContent.trim()
-    }));
-
-    // Map ARIA headings to level objects
-    for (const ariaHeading of ariaHeadings) {
-      const ariaLevel = parseInt(ariaHeading.getAttribute("aria-level") || "1");
-      if (ariaLevel >= 1 && ariaLevel <= 6) {
-        headings.push({
-          element: ariaHeading,
-          level: ariaLevel,
-          type: "aria",
-          text: ariaHeading.textContent.trim()
-        });
-      }
-    }
-
-    // If no headings at all, flag it
     if (headings.length === 0) {
-      this.addAlert("critical", "No Headings Found", 
+      this.addAlert("critical", "No Headings Found",
         "Page must have at least one heading (native <h1-h6> or role=\"heading\" aria-level)",
         document.body);
       return;
     }
 
-    // Check for level 1 heading (native H1 or ARIA level 1)
-    const level1s = headings.filter(h => h.level === 1);
-    if (level1s.length === 0) {
-      this.addAlert("critical", "Missing Level 1 Heading", 
-        "Page should have a level 1 heading (native <h1> or role=\"heading\" aria-level=\"1\")",
-        document.body);
-    } else if (level1s.length > 1) {
-      const listedLevel1s = level1s
-        .map((heading, index) => `${index + 1}. ${describeHeading(heading)}`)
-        .join("<br>");
-      this.addAlert("warning", "Multiple Level 1 Headings", 
-        `Page should have only one level 1 heading for clarity (consider using role="heading" aria-level for semantic flexibility)<br><strong>Detected level 1 headings:</strong><br>${listedLevel1s}`,
-        level1s[0].element);
-    }
-
-    // Sort headings by document order
-    const sortedHeadings = headings.sort((a, b) => {
-      const aIndex = Array.from(document.querySelectorAll("*")).indexOf(a.element);
-      const bIndex = Array.from(document.querySelectorAll("*")).indexOf(b.element);
-      return aIndex - bIndex;
-    });
-
-    // Check for skipped levels in hierarchy
-    let lastLevel = null;
-    for (const heading of sortedHeadings) {
-      if (lastLevel !== null && heading.level > lastLevel + 1) {
-        const typeInfo = heading.type === "aria" ? 
-          `role="heading" aria-level="${heading.level}"` : 
-          `<h${heading.level}>`;
-        this.addAlert("warning", `Heading Level Skip`, 
-          `Skipped from level ${lastLevel} to level ${heading.level}. Heading hierarchy should not skip levels (${typeInfo})`, heading.element);
-      }
-      lastLevel = heading.level;
-    }
-
-    // Check for empty headings
-    for (const heading of headings) {
-      if (!heading.text) {
-        const typeInfo = heading.type === "aria" ? 
-          `role="heading" aria-level="${heading.level}"` : 
-          `<h${heading.level}>`;
-        this.addAlert("error", "Empty Heading", `${typeInfo} is empty`, heading.element);
-      }
-    }
-
-    // Optional: Suggest ARIA roles for better semantic flexibility
-    if (nativeHeadings.length > 0 && ariaHeadings.length === 0) {
-      this.addAlert("info", "Consider ARIA Heading Roles", 
-        "You can use role=\"heading\" aria-level=\"1-6\" for semantic flexibility with custom styling (not required, just an option)");
-    }
+    reportLevelOneHeadingIssues(this, headings);
+    reportHeadingLevelSkips(this, getHeadingsInDocumentOrder(headings));
+    reportEmptyHeadings(this, headings);
   }
 
   /**
@@ -5352,7 +5678,7 @@ export class smlCompliance {
       const accessibleNameOverride = getAccessibleNameOverrideDetails(link);
       if (!isHiddenFromAllUsers(link) && accessibleNameOverride && !accessibleNameContainsVisibleLabel(accessibleNameOverride.visibleText, accessibleNameOverride.accessibleName)) {
         this.addAlert("warning", "Accessible Name Does Not Include Visible Label",
-          `People see ${accessibleNameOverride.labelKind} "${accessibleNameOverride.visibleText}", but assistive technology gets ${accessibleNameOverride.sourceAttribute} "${accessibleNameOverride.accessibleName}" instead. Keep the visible words inside the screen reader label.`, link);
+          getAccessibleNameMismatchMessage(link, accessibleNameOverride), link);
       }
       
       if (text.toLowerCase() === "click here" || text.toLowerCase() === "click me") {
@@ -5480,7 +5806,7 @@ export class smlCompliance {
       const accessibleNameOverride = getAccessibleNameOverrideDetails(btn);
       if (!isHiddenFromAllUsers(btn) && accessibleNameOverride && !accessibleNameContainsVisibleLabel(accessibleNameOverride.visibleText, accessibleNameOverride.accessibleName)) {
         this.addAlert("warning", "Accessible Name Does Not Include Visible Label",
-          `People see ${accessibleNameOverride.labelKind} "${accessibleNameOverride.visibleText}", but assistive technology gets ${accessibleNameOverride.sourceAttribute} "${accessibleNameOverride.accessibleName}" instead. Keep the visible words inside the screen reader label.`, btn);
+          getAccessibleNameMismatchMessage(btn, accessibleNameOverride), btn);
       }
 
       // Check for disabled state accessibility
@@ -5548,7 +5874,7 @@ export class smlCompliance {
       const accessibleNameOverride = getAccessibleNameOverrideDetails(input);
       if (!isHiddenFromAllUsers(input) && accessibleNameOverride && !accessibleNameContainsVisibleLabel(accessibleNameOverride.visibleText, accessibleNameOverride.accessibleName)) {
         this.addAlert("warning", "Accessible Name Does Not Include Visible Label",
-          `People see ${accessibleNameOverride.labelKind} "${accessibleNameOverride.visibleText}", but assistive technology gets ${accessibleNameOverride.sourceAttribute} "${accessibleNameOverride.accessibleName}" instead. Keep the visible words inside the screen reader label.`, input);
+          getAccessibleNameMismatchMessage(input, accessibleNameOverride), input);
       }
 
       // Check for required field indication
@@ -5614,7 +5940,7 @@ export class smlCompliance {
       const accessibleNameOverride = getAccessibleNameOverrideDetails(control);
       if (accessibleNameOverride && !accessibleNameContainsVisibleLabel(accessibleNameOverride.visibleText, accessibleNameOverride.accessibleName)) {
         this.addAlert("warning", "Accessible Name Does Not Include Visible Label",
-          `People see ${accessibleNameOverride.labelKind} "${accessibleNameOverride.visibleText}", but assistive technology gets ${accessibleNameOverride.sourceAttribute} "${accessibleNameOverride.accessibleName}" instead. Keep the visible words inside the screen reader label.`, control);
+          getAccessibleNameMismatchMessage(control, accessibleNameOverride), control);
       }
     }
   }
@@ -5772,7 +6098,12 @@ export class smlCompliance {
               `Background ${formatNamedColorChoice(legacyThemeSuggestion?.background, sampledTargetId, formatContrastHex)} | ` +
             `Contrast ${(legacyThemeSuggestion?.contrast ?? 0).toFixed(1)}:1`;
 
-        this.addAlert(level, "Low Color Contrast", message, elem);
+        this.addAlert(level, "Low Color Contrast", message, elem, {
+          contrastSwatches: [
+            { label: "FG", hex: currentForeground },
+            { label: "BG", hex: currentBackground }
+          ]
+        });
       }
     }
   }
@@ -6276,7 +6607,7 @@ export class smlCompliance {
   /**
    * Add alert to collection
    */
-  addAlert(level, title, message, element = null) {
+  addAlert(level, title, message, element = null, extra = {}) {
     if (element instanceof Element && isSmlcOwnedElement(element)) return;
 
     let normalizedLevel = level;
@@ -6294,7 +6625,14 @@ export class smlCompliance {
       normalizedMessage = `${element.tagName} uses role="button" and may use delegated or component-managed keyboard handling that static checks cannot directly confirm. Verify Enter/Space support at runtime in DevTools, or prefer a native <button>.`;
     }
 
-    this.alerts.push({ level: normalizedLevel, title: normalizedTitle, message: normalizedMessage, element, plainDescription: getPlainLanguageIssueDescription(normalizedTitle) });
+    this.alerts.push({
+      level: normalizedLevel,
+      title: normalizedTitle,
+      message: normalizedMessage,
+      element,
+      plainDescription: getPlainLanguageIssueDescription(normalizedTitle),
+      ...extra
+    });
 
     if (this.cfg.showAlerts && element) {
       createComplianceAlert(normalizedLevel, normalizedTitle, normalizedMessage, element);

@@ -7,6 +7,7 @@
   "use strict";
 
   const TZEDEK_VERSION = "2026.08.13.01";
+  const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
   const CURRENT_SCRIPT_SRC = document.currentScript?.src || "";
@@ -52,6 +53,15 @@
       runtimeVersion: displayVersion,
       installUrl: "/compliance-bookmarklet.html"
     };
+  }
+
+  function getRepositoryUrl() {
+    const configuredUrl = getRuntimeConfig().repositoryUrl;
+    if (typeof configuredUrl === "string" && configuredUrl.trim().length > 0) {
+      return configuredUrl.trim();
+    }
+
+    return DEFAULT_REPOSITORY_URL;
   }
 
   function resolveModuleUrl() {
@@ -389,6 +399,37 @@
       .replace(/'/g, "&#39;");
   }
 
+  function escapeAttribute(value) {
+    return escapeHtml(value);
+  }
+
+  function normalizeContrastSwatches(swatches) {
+    if (!Array.isArray(swatches)) return [];
+
+    return swatches
+      .map((entry) => {
+        const label = String(entry?.label || "").trim();
+        const hex = String(entry?.hex || "").trim().toUpperCase();
+        if (!label || !/^#[0-9A-F]{6}$/.test(hex)) return null;
+        return { label, hex };
+      })
+      .filter(Boolean);
+  }
+
+  function renderContrastSwatches(swatches) {
+    if (!Array.isArray(swatches) || swatches.length === 0) return "";
+
+    const items = swatches.map((swatch) => {
+      return "<span class='smlc-color-chip'>"
+        + "<span class='smlc-color-chip-label'>" + escapeHtml(swatch.label) + "</span>"
+        + "<span class='smlc-color-chip-swatch' style='background:" + escapeAttribute(swatch.hex) + ";' aria-hidden='true'></span>"
+        + "<span class='smlc-color-chip-hex'>" + escapeHtml(swatch.hex) + "</span>"
+        + "</span>";
+    }).join("");
+
+    return "<div class='smlc-color-swatches'><strong>Colors:</strong> " + items + "</div>";
+  }
+
   function stripHtml(value) {
     const temp = document.createElement("div");
     markSmlcElementTree(temp);
@@ -665,6 +706,7 @@
         title: alert.title || "Issue",
         plainDescription: alert.plainDescription || "",
         message: stripHtml(alert.message || ""),
+        contrastSwatches: normalizeContrastSwatches(alert.contrastSwatches),
         why: getWhyText(level),
         targetId: getSafeTargetId(alert.element, index)
       };
@@ -809,6 +851,7 @@
         "<li class='smlc-item'>",
         "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
         issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
+        renderContrastSwatches(issue.contrastSwatches),
         "<div>" + messageHtml + "</div>",
         "<div class='smlc-meta'><strong>Why this matters:</strong> " + escapeHtml(issue.why) + "</div>",
         jumpLink,
@@ -864,6 +907,7 @@
     panel.id = PANEL_ID;
     panel.setAttribute("role", "region");
     panel.setAttribute("aria-label", "Tzedek audit issues");
+    const repositoryUrl = getRepositoryUrl();
     panel.innerHTML = [
       "<div class='smlc-headline'>",
       "<div class='smlc-headline-main'>",
@@ -871,7 +915,7 @@
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
-      "<a class='smlc-version' href='https://github.com/zodiac1913/Tzedek' target='_blank' rel='noopener noreferrer' title='Go to Tzedek Repo' aria-label='Go to Tzedek Repo'>v" + escapeHtml(displayVersion) + "</a>",
+      "<a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(displayVersion) + "</a>",
       "</div>",
       "<div class='smlc-actions'>",
       "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar'>Close Issues Bar</button>",

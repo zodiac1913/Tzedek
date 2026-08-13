@@ -222,6 +222,14 @@
 
       <div class="grid page-content" id="demo-issues">
         <section class="card">
+          <h3>Skipped heading after the page title</h3>
+          <p>This intentionally jumps from the page H1 to an H3 so the heading-skip rule has a native heading example.</p>
+          <h2>Heading level reset for the ARIA example</h2>
+          <div role="heading" aria-level="4">ARIA heading skips level 3 after the H2</div>
+          <p>This second case uses <code>role="heading"</code> with <code>aria-level</code> so the same skip rule is exercised for custom heading patterns.</p>
+        </section>
+
+        <section class="card">
           <h2>Links and Buttons</h2>
           <p>These fixtures are injected at runtime so the demo file stays lint-clean while Tzedek still has real problems to find.</p>
           <div id="fixture-links-buttons" class="fixture-slot"></div>
@@ -249,16 +257,21 @@
             "<p><a href='/policies/telework'>Read more</a> about telework. <a href='/benefits/telework-request'>Read more</a> if you need the request form.</p>",
             "<p><a href='/demo'>Open the demo directory</a> to exercise same-origin redirect review.</p>",
             "<p><span class='fake-button' onclick=\"alert('Not semantic')\">Open settings</span></p>",
+            "<p><button type='button' aria-label='Open employee profile'>View profile</button></p>",
             "<p><button type='button' class='issue-button'>Low contrast button</button></p>",
             "<p><input type='submit' value='Send request' aria-label='Submit form now'></p>",
             "<details><summary aria-label='Expand policy guidance'>Open billing panel</summary><p>Summary text mismatch example.</p></details>",
             "<div role='tab' aria-label='Account security tab' tabindex='0'>Profile</div>",
-            "<p><a class='muted-link' href='/missing-page'>Review details</a></p>"
+            "<p><a class='muted-link' href='/missing-page'>Review details</a></p>",
+            "<p><a href='/smlDocs.html' aria-label='Request application access'>Need Access to an Application?</a></p>"
           ].join(""),
           "fixture-forms-media": [
             "<p><img src='./page/assets/smoke.png' width='160' height='100'></p>",
             "<p><input type='text' placeholder='Search policies'></p>",
             "<p><input type='checkbox' id='agree-demo'><span>I agree to the terms</span></p>",
+            "<div><span id='demoAriaLabel'>Badge number</span><input type='text' aria-labelledby='demoAriaLabel demoAriaLabel demoMissingLabel'></div>",
+            "<div><label for='demoBadgeField'>Badge number</label><span id='demoBadgeFieldAriaLabel'>Employee badge ID</span><input id='demoBadgeField' type='text' aria-labelledby='demoBadgeFieldAriaLabel'></div>",
+            "<div><label for='demoSharedHelpField'>Agency email</label><span id='demoSharedHelp'>Use your agency email.</span><span id='demoSharedHelp'>Duplicate help text node.</span><input id='demoSharedHelpField' type='email' aria-describedby='demoSharedHelp'></div>",
             "<form aria-label='Demo validation form'><label for='email-demo'>Work email</label><input id='email-demo' type='email' required aria-invalid='true'><div id='email-demo-error' role='alert'>Enter a valid work email address.</div></form>",
             "<iframe srcdoc='<form><label>Name <input></label></form>' title='content'></iframe>",
             "<embed src='data:text/html,%3Cp%3EEmbedded%20policy%20preview%3C/p%3E' type='text/html'>"
@@ -279,6 +292,17 @@
             "<tr><th scope='row'>North</th><td>5</td><td>7</td></tr>",
             "<tr><th scope='row'>South</th><td>2</td><td>4</td></tr>",
             "</tbody>",
+            "</table>",
+            "<table>",
+            "<caption>Regional staffing totals with broken header ids</caption>",
+            "<thead>",
+            "<tr><th id='demoRegionHeader' rowspan='2' scope='col'>Region</th><th id='demoOpenFindingsHeader' colspan='2' scope='colgroup'>Open findings</th></tr>",
+            "<tr><th id='demoCriticalHeader' scope='col'>Critical</th><th id='demoWarningHeader' scope='col'>Warning</th></tr>",
+            "</thead>",
+            "<tbody>",
+            "<tr><th id='demoNorthRow' scope='row'>North</th><td headers='demoNorthRow demoCritcalHeader'>5</td><td headers='demoNorthRow demoWarningHeader'>7</td></tr>",
+            "<tr><th id='demoSouthRow' scope='row'>South</th><td headers='demoSouthRow demoCriticalHeader'>2</td><td headers='demoSouthRow demoWarningHeader'>4</td></tr>",
+            "</tbody>",
             "</table>"
           ].join("")
         };
@@ -294,7 +318,8 @@
       window.TzedekConfig = {
         moduleUrl: new URL("./page/smlCompliance.js", window.location.href).href,
         assetBaseUrl: new URL("./page/assets/", window.location.href).href,
-        bootstrapIconsHref: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        bootstrapIconsHref: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
+        repositoryUrl: "https://github.com/zodiac1913/Tzedek"
       };
 
       window.launchTzedek = function launchTzedek() {

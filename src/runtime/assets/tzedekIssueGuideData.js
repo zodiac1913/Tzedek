@@ -38,6 +38,20 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Demote supporting headings to h2 and below instead of using multiple h1 elements."
     ]
   },
+  "Heading Level Skip": {
+    overview: "This finding appears when the heading order jumps past a level, such as H1 straight to H3 or H2 straight to H4.",
+    whyItMatters: [
+      "Many users navigate by heading level and expect the structure to step down one level at a time.",
+      "When a level is skipped, users can lose the relationship between sections and subsections.",
+      "A logical heading outline makes large pages faster to scan, understand, and trust."
+    ],
+    reviewChecklist: [
+      "Check the heading immediately before the flagged one and compare their levels.",
+      "If the flagged heading belongs directly under the previous section, demote it to the next level only, such as h3 to h2.",
+      "If an intermediate heading is truly missing, add that missing section heading instead of leaving the jump in place.",
+      "Apply the same one-level-at-a-time rule to role=heading aria-level patterns as well as native h1-h6 elements."
+    ]
+  },
   "Missing Alt Text": {
     overview: "This finding appears when an image conveys information but does not provide alternative text.",
     whyItMatters: [
