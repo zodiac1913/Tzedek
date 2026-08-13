@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.07.30.01";
+  const TZEDEK_VERSION = "2026.08.13.01";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
   const CURRENT_SCRIPT_SRC = document.currentScript?.src || "";

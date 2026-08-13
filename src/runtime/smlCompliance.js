@@ -179,7 +179,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Form Should Be Labeled": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
   "Grouped Choices Missing Fieldset": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset",
   "Input Missing Label": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
-  "Search Input Role Missing": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/searchbox_role",
+  "Search Input Missing Accessible Name": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/searchbox_role",
   "Low Color Contrast": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast",
   "Missing Focus Indicator": "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
   "Non-Standard Click Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
@@ -275,7 +275,7 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Input Missing Label": "HTML form label accessibility",
   "Required Field Not Indicated": "aria-required accessibility",
   "Invalid Input Not Described": "aria-describedby form error accessibility",
-  "Search Input Role Missing": "search input role accessibility",
+  "Search Input Missing Accessible Name": "search input accessible name label",
   "Empty ARIA Label": "aria-label accessibility",
   "Invalid aria-labelledby Reference": "aria-labelledby accessibility",
   "Invalid aria-describedby Reference": "aria-describedby accessibility",
@@ -433,17 +433,21 @@ function calculateAPCAContrast(rgb1, rgb2) {
 }
 
 /**
- * Parse RGB color string
+ * Parse CSS color string, returning null if the color cannot be resolved.
+ * Returns null for: empty/missing values, unresolved CSS variables, currentcolor, unsupported syntax.
+ * Returns the RGBA object only for valid rgb(), hex, or resolved colors.
  */
-function parseRGB(colorStr) {
-  const rgba = parseCssColorToRgba(colorStr);
-  return { r: rgba.r, g: rgba.g, b: rgba.b };
-}
+function parseCssColorToRgbaNullable(colorStr) {
+  if (!colorStr) return null;
 
-function parseCssColorToRgba(colorStr) {
-  if (!colorStr) return { r: 0, g: 0, b: 0, a: 1 };
+  const safeStr = String(colorStr).trim();
+  if (!safeStr) return null;
 
-  const rgbaMatch = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i.exec(colorStr);
+  // Reject currentcolor (it requires context to resolve)
+  if (/^currentcolor$/i.test(safeStr)) return null;
+
+  // Try to parse rgb/rgba
+  const rgbaMatch = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i.exec(safeStr);
   if (rgbaMatch) {
     return {
       r: Number.parseInt(rgbaMatch[1], 10),
@@ -453,7 +457,8 @@ function parseCssColorToRgba(colorStr) {
     };
   }
 
-  const hexMatch = /#([0-9A-Fa-f]{6})/.exec(colorStr);
+  // Try to parse hex
+  const hexMatch = /#([0-9A-Fa-f]{6})/.exec(safeStr);
   if (hexMatch) {
     const hex = hexMatch[1];
     return {
@@ -464,6 +469,26 @@ function parseCssColorToRgba(colorStr) {
     };
   }
 
+  // Reject unresolved CSS variable references
+  if (safeStr.includes("var(")) {
+    return null;
+  }
+
+  // Reject any other unsupported syntax
+  return null;
+}
+
+/**
+ * Parse RGB color string, returning null if unresolvable.
+ */
+function parseRGB(colorStr) {
+  return parseCssColorToRgbaNullable(colorStr);
+}
+
+function parseCssColorToRgba(colorStr) {
+  const result = parseCssColorToRgbaNullable(colorStr);
+  if (result) return result;
+  // Fallback for backward compat
   return { r: 0, g: 0, b: 0, a: 1 };
 }
 
@@ -500,7 +525,8 @@ function compositeRgbaOver(top, bottom) {
 }
 
 /**
- * Get computed background color including parent chain
+ * Get computed background color including parent chain.
+ * Ignores unresolved colors (CSS variables, currentcolor, etc.)
  */
 function getEffectiveBackgroundColor(element) {
   if (!(element instanceof Element)) return { r: 255, g: 255, b: 255 };
@@ -516,8 +542,8 @@ function getEffectiveBackgroundColor(element) {
     }
 
     const bgColor = styles.backgroundColor;
-    const parsed = parseCssColorToRgba(bgColor);
-    if (parsed.a > 0) {
+    const parsed = parseCssColorToRgbaNullable(bgColor);
+    if (parsed && parsed.a > 0) {
       layers.push(parsed);
     }
     if (current === document.body) break;
@@ -758,6 +784,31 @@ function measureContrastStateSnapshot(element, stateOverrides) {
   probeHost.setAttribute("aria-hidden", "true");
   probeHost.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout style paint;z-index:-1;";
 
+  // Copy CSS custom properties from the element's ancestors so cloned elements can resolve var() references
+  const copyCssVariables = (source) => {
+    if (!(source instanceof Element)) return;
+    const styles = window.getComputedStyle(source);
+    for (let i = 0; i < styles.length; i++) {
+      const propName = styles[i];
+      if (propName.startsWith("--")) {
+        const propValue = styles.getPropertyValue(propName);
+        if (propValue && propValue.trim()) {
+          probeHost.style.setProperty(propName, propValue);
+        }
+      }
+    }
+  };
+
+  // Copy variables from the element itself and its ancestors
+  let current = element;
+  while (current instanceof Element && current !== document.body.parentElement) {
+    copyCssVariables(current);
+    current = current.parentElement;
+  }
+  // Also ensure we get body and root variables
+  if (document.body) copyCssVariables(document.body);
+  copyCssVariables(document.documentElement);
+
   const cloneMap = new Map();
   let parentClone = probeHost;
 
@@ -784,8 +835,12 @@ function measureContrastStateSnapshot(element, stateOverrides) {
     const clonedTarget = cloneMap.get(element);
     if (!(clonedTarget instanceof Element)) return null;
 
+    const textRgb = parseRGB(window.getComputedStyle(clonedTarget).color);
+    // Skip this snapshot if text color cannot be resolved
+    if (!textRgb) return null;
+
     return {
-      textRgb: parseRGB(window.getComputedStyle(clonedTarget).color),
+      textRgb,
       backgroundRgb: getEffectiveBackgroundColor(clonedTarget)
     };
   } finally {
@@ -801,6 +856,9 @@ function getContrastStateSnapshots(element) {
   if (accessibleRules.length === 0) return [];
 
   const currentTextRgb = parseRGB(window.getComputedStyle(element).color);
+  // If default text color cannot be resolved, skip state analysis
+  if (!currentTextRgb) return [];
+
   const currentBackgroundRgb = getEffectiveBackgroundColor(element);
   const snapshots = [];
 
@@ -1839,11 +1897,6 @@ function buildInputLabelFixMarkup(element) {
     clone.setAttribute("aria-labelledby", labelId);
   }
 
-  const cloneType = String(clone.getAttribute("type") || "").toLowerCase();
-  if (cloneType === "search" && !clone.hasAttribute("role")) {
-    clone.setAttribute("role", "search");
-  }
-
   if (clone.hasAttribute("required") && !clone.hasAttribute("aria-required")) {
     clone.setAttribute("aria-required", "true");
   }
@@ -2468,12 +2521,16 @@ function buildInputStateFixSuggestions(title, element) {
 
   return [
     {
-      heading: "Add the expected search role",
-      code: `<input id="${fieldId}" type="search" role="search" aria-label="Search employees" />`
+      heading: "Best: Search landmark with placeholder and aria-label",
+      code: `<div role="search">\n  <input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />\n</div>`
     },
     {
-      heading: "Wrap the search field in a labeled search landmark",
-      code: `<form role="search" aria-label="Employee search">\n  <label for="${fieldId}">Search employees</label>\n  <input id="${fieldId}" type="search" />\n</form>`
+      heading: "Minimal: Input with placeholder and aria-label only",
+      code: `<input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />`
+    },
+    {
+      heading: "Alternative: Form landmark with placeholder",
+      code: `<form role="search">\n  <input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />\n</form>`
     }
   ];
 }
@@ -3399,11 +3456,19 @@ function getInputFixContent(normalizedTitle, element) {
     };
   }
 
-  if (["Disabled State Not Announced", "Required Field Not Indicated", "Search Input Role Missing"].includes(normalizedTitle)) {
+  if (["Disabled State Not Announced", "Required Field Not Indicated"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Expose the field state clearly",
       description: "Make important field state available both visually and programmatically so assistive technology users get the same meaning.",
       snippets: buildInputStateFixSuggestions(normalizedTitle, element)
+    };
+  }
+
+  if (normalizedTitle === "Search Input Missing Accessible Name") {
+    return {
+      heading: "Fix: Add an accessible name to the search input",
+      description: "The search input needs a clear accessible name so users know what they can search for.",
+      snippets: buildSearchInputFixSuggestions(normalizedTitle, element)
     };
   }
 
@@ -3799,7 +3864,7 @@ function getPlainLanguageIssueDescription(title) {
     "Invalid aria-describedby Reference": "The aria-describedby points to something that is not on the page. Help text or error text may never be read out loud.",
     "Duplicate aria-describedby Reference": "The same description is listed more than once. Screen readers may repeat the same description text.",
     "Required Field Not Indicated": "This field must be filled in, but the page is not clearly telling the user that.",
-    "Search Input Role Missing": "This looks like a search box, but the markup does not say it is a search box. Assistive tools may treat it like a plain text field.",
+    "Search Input Missing Accessible Name": "This search input needs an accessible name so users know what they can search for. Use a <label>, aria-label, or aria-labelledby.",
     "Broken Fragment Link": "This link is supposed to jump to a spot on the same page, but that spot does not exist.",
     "Broken Same-Origin Link": "This link points to a page or file in this app, but that page or file could not be reached when checked.",
     "Same-Origin Link Redirects": "This link reaches the destination through a redirect. It may still work, but the extra hop can hide where the link really goes.",
@@ -5520,10 +5585,18 @@ export class smlCompliance {
         }
       }
 
-      // Search input should have role="search"
-      if (input.type === "search" && !input.hasAttribute("role")) {
-        this.addAlert("info", "Search Input Role Missing", 
-          `Search input should have role="search"`, input);
+      // Search input accessibility checks
+      if (input.type === "search") {
+        // Check for accessible name
+        const hasAccessibleName = 
+          input.hasAttribute("aria-label") ||
+          input.hasAttribute("aria-labelledby") ||
+          (input.id && document.querySelector(`label[for="${input.id}"]`));
+        
+        if (!hasAccessibleName) {
+          this.addAlert("warning", "Search Input Missing Accessible Name",
+            `This search input needs an accessible name so users know what they can search for.`, input);
+        }
       }
 
       // Native checkbox/radio inputs already expose implicit semantics.
@@ -5601,6 +5674,9 @@ export class smlCompliance {
       const fontWeight = window.getComputedStyle(elem).fontWeight;
       
       const textRGB = parseRGB(textColor);
+      // Skip elements with unresolvable text color
+      if (!textRGB) continue;
+
       const contrastSnapshots = [
         {
           name: "default",
@@ -5608,10 +5684,13 @@ export class smlCompliance {
           backgroundRgb: bgRGB
         },
         ...getContrastStateSnapshots(elem)
-      ].map((snapshot) => ({
+      ].filter((snapshot) => snapshot.textRgb && snapshot.backgroundRgb) // Filter out snapshots with unresolved colors
+       .map((snapshot) => ({
         ...snapshot,
         contrast: calculateAPCAContrast(snapshot.textRgb, snapshot.backgroundRgb)
       }));
+
+      if (contrastSnapshots.length === 0) continue;
 
       const lowestContrastSnapshot = contrastSnapshots.reduce((lowest, snapshot) => {
         if (!lowest) return snapshot;
