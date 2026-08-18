@@ -68,7 +68,7 @@ Status: Feature-complete for the currently tracked WCAG/508 checks. ANDI-style p
 - Required field not indicated detection
 - Invalid input not described detection
 - More explicit review of error-message relationships when form validation is present
-- Search input role missing detection
+- Search landmark detection and invalid role-on-input detection
 - Grouped radio and checkbox sets missing `fieldset` and `legend`
 
 ### Tables and data structure

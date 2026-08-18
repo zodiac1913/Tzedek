@@ -24,9 +24,9 @@ The standard is simple:
 - `Invalid aria-level Value`: resolves to the specific `aria-level` reference page
 - `Invalid aria-live Value`: resolves to the specific `aria-live` reference page
 - `Live Region Should Have aria-atomic`: resolves to the specific `aria-atomic` reference page
-- `Consider ARIA Heading Roles`: resolves to the specific `heading` role reference page
 - `Heading Role Missing aria-level`: now resolves to the specific `heading` role reference page through the direct title mapping
-- `Search Input Role Missing`: resolves to the specific `searchbox` role reference page
+- `Search Landmark Missing`: resolves to the specific `search` landmark role reference page
+- `Search Landmark Role on Input`: resolves to the specific `search` landmark role reference page
 - `Missing Navigation Landmark`: resolves to the specific `navigation` role reference page
 - `Missing Main Landmark`: resolves to the specific `main` role reference page
 - `Custom Navigation Container Missing Landmark`: resolves to the specific `navigation` role reference page

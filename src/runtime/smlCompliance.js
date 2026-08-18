@@ -179,6 +179,8 @@ const MORE_INFO_URL_BY_TITLE = {
   "Grouped Choices Missing Fieldset": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset",
   "Input Missing Label": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
   "Search Input Missing Accessible Name": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/searchbox_role",
+  "Search Landmark Missing": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/search_role",
+  "Search Landmark Role on Input": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/search_role",
   "Low Color Contrast": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast",
   "Missing Focus Indicator": "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
   "Non-Standard Click Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
@@ -274,6 +276,8 @@ const MORE_INFO_QUERY_BY_TITLE = {
   "Required Field Not Indicated": "aria-required accessibility",
   "Invalid Input Not Described": "aria-describedby form error accessibility",
   "Search Input Missing Accessible Name": "search input accessible name label",
+  "Search Landmark Missing": "search landmark accessibility",
+  "Search Landmark Role on Input": "search landmark role input accessibility",
   "Empty ARIA Label": "aria-label accessibility",
   "Invalid aria-labelledby Reference": "aria-labelledby accessibility",
   "Invalid aria-describedby Reference": "aria-describedby accessibility",
@@ -694,6 +698,12 @@ function buildContrastProbeChain(element) {
   return chain;
 }
 
+function contrastProbeContainsCustomElement(element, chain) {
+  const isCustomElement = (node) => node instanceof Element && node.localName.includes("-");
+  if (chain.some(isCustomElement)) return true;
+  return Array.from(element.querySelectorAll("*")).some(isCustomElement);
+}
+
 function getContrastStateOwner(element) {
   if (!(element instanceof Element)) return null;
   if (element.matches(CONTRAST_STATEFUL_SELECTOR)) return element;
@@ -777,6 +787,7 @@ function measureContrastStateSnapshot(element, stateOverrides) {
 
   const chain = buildContrastProbeChain(element);
   if (chain.length === 0) return null;
+  if (contrastProbeContainsCustomElement(element, chain)) return null;
 
   const probeHost = document.createElement("div");
   probeHost.setAttribute("aria-hidden", "true");
@@ -1354,7 +1365,8 @@ function isHeadingVisibleForAudit(element) {
   const hiddenAncestor = element.closest("[hidden], .hidden, template, [aria-hidden='true'], .modal[aria-hidden='true'], .modal:not(.show)");
   if (hiddenAncestor) return false;
 
-  return isElementVisibleForContrastAudit(element);
+  const styles = window.getComputedStyle(element);
+  return styles.display !== "none" && styles.visibility !== "hidden";
 }
 
 function describeElementForContrast(element) {
@@ -2634,16 +2646,8 @@ function buildInputStateFixSuggestions(title, element) {
 
   return [
     {
-      heading: "Best: Search landmark with placeholder and aria-label",
-      code: `<div role="search">\n  <input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />\n</div>`
-    },
-    {
-      heading: "Minimal: Input with placeholder and aria-label only",
-      code: `<input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />`
-    },
-    {
-      heading: "Alternative: Form landmark with placeholder",
-      code: `<form role="search">\n  <input id="${fieldId}" type="search" placeholder="Search employees" aria-label="Search employees" />\n</form>`
+      heading: "Wrap the search field in a labeled search landmark",
+      code: `<form role="search" aria-label="Employee search">\n  <label for="${fieldId}">Search employees</label>\n  <input id="${fieldId}" type="search" />\n</form>`
     }
   ];
 }
@@ -3760,7 +3764,7 @@ function getInputFixContent(normalizedTitle, element) {
     };
   }
 
-  if (["Disabled State Not Announced", "Required Field Not Indicated"].includes(normalizedTitle)) {
+  if (["Disabled State Not Announced", "Required Field Not Indicated", "Search Landmark Missing", "Search Landmark Role on Input"].includes(normalizedTitle)) {
     return {
       heading: "Suggested Fix: Expose the field state clearly",
       description: "Make important field state available both visually and programmatically so assistive technology users get the same meaning.",
@@ -4169,7 +4173,9 @@ function getPlainLanguageIssueDescription(title) {
     "Invalid aria-describedby Reference": "The aria-describedby points to something that is not on the page. Help text or error text may never be read out loud.",
     "Duplicate aria-describedby Reference": "The same description is listed more than once. Screen readers may repeat the same description text.",
     "Required Field Not Indicated": "This field must be filled in, but the page is not clearly telling the user that.",
-    "Search Input Missing Accessible Name": "This search input needs an accessible name so users know what they can search for. Use a <label>, aria-label, or aria-labelledby.",
+  "Search Input Missing Accessible Name": "This search input needs an accessible name so users know what they can search for. Use a <label>, aria-label, or aria-labelledby.",
+    "Search Landmark Missing": "This search input is not inside a container with role=\"search\". Assistive tools cannot expose it as a search landmark.",
+    "Search Landmark Role on Input": "role=\"search\" belongs on the container around this search input, not on the input itself.",
     "Broken Fragment Link": "This link is supposed to jump to a spot on the same page, but that spot does not exist.",
     "Broken Same-Origin Link": "This link points to a page or file in this app, but that page or file could not be reached when checked.",
     "Same-Origin Link Redirects": "This link reaches the destination through a redirect. It may still work, but the extra hop can hide where the link really goes.",
@@ -4447,16 +4453,30 @@ function normalizeAccessibleNameText(value) {
 function getLinkAuditLabel(link) {
   if (!(link instanceof Element)) return "";
 
-  const visibleText = getVisibleControlText(link);
-  if (visibleText) return visibleText;
-
   const ariaLabel = String(link.getAttribute("aria-label") || "").trim();
   if (ariaLabel) return ariaLabel;
 
   const ariaLabelledbyText = getReferencedTextContent(link.getAttribute("aria-labelledby"));
   if (ariaLabelledbyText) return ariaLabelledbyText;
 
+  const visibleText = getVisibleControlText(link);
+  if (visibleText) return visibleText;
+
   return String(link.getAttribute("title") || "").trim();
+}
+
+function getTableRowLinkContext(link) {
+  if (!(link instanceof Element)) return "";
+
+  const row = link.closest("tr");
+  const linkCell = link.closest("th, td");
+  if (!(row instanceof HTMLTableRowElement) || !(linkCell instanceof HTMLTableCellElement)) return "";
+
+  return Array.from(row.querySelectorAll(":scope > th, :scope > td"))
+    .filter((cell) => cell !== linkCell)
+    .map((cell) => getVisibleControlText(cell))
+    .filter(Boolean)
+    .join(" ");
 }
 
 function getNormalizedLinkDestination(rawHref) {
@@ -4795,6 +4815,36 @@ async function getCachedComplianceLinkStatus(url, timeoutMs) {
   }
 
   return await BROKEN_LINK_STATUS_CACHE.get(cacheKey);
+}
+
+async function prefetchSameOriginLinkStatuses(links, timeoutMs, concurrency) {
+  const uniqueUrls = new Map();
+  for (const link of links) {
+    if (!(link instanceof HTMLAnchorElement)) continue;
+
+    const rawHref = String(link.getAttribute("href") || "").trim();
+    if (!rawHref || rawHref === "#") continue;
+
+    const normalizedHref = rawHref.toLowerCase();
+    if (["javascript:", "mailto:", "tel:", "sms:", "data:", "blob:"].some((prefix) => normalizedHref.startsWith(prefix))) continue;
+
+    const auditUrl = resolveComplianceAuditUrl(rawHref);
+    if (!isLinkAuditHttpUrl(auditUrl) || isSameDocumentFragmentLink(auditUrl) || auditUrl.origin !== window.location.origin) continue;
+
+    uniqueUrls.set(auditUrl.href, auditUrl);
+  }
+
+  const urls = Array.from(uniqueUrls.values());
+  const workerCount = Math.min(Math.max(1, Number(concurrency) || 1), urls.length);
+  let nextUrlIndex = 0;
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextUrlIndex < urls.length) {
+      const url = urls[nextUrlIndex];
+      nextUrlIndex += 1;
+      await getCachedComplianceLinkStatus(url, timeoutMs);
+    }
+  }));
 }
 
 function isFocusableOrInteractiveElement(element) {
@@ -5443,7 +5493,8 @@ export class smlCompliance {
       containerSelector: "cc-container, sml-page",
       showAlerts: true,
       checkBrokenLinks: true,
-      brokenLinkTimeoutMs: 30000,
+      brokenLinkTimeoutMs: 5000,
+      brokenLinkConcurrency: 8,
       autoRun: false,
       ...cfg
     };
@@ -5646,6 +5697,10 @@ export class smlCompliance {
       ? this.pageLinks
       : Array.from(document.querySelectorAll("a[href]"));
     const linkTextGroups = new Map();
+
+    if (this.cfg.checkBrokenLinks === true) {
+      await prefetchSameOriginLinkStatuses(links, this.cfg.brokenLinkTimeoutMs, this.cfg.brokenLinkConcurrency);
+    }
     
     for (const link of links) {
       if (link.closest(".sml-compliance-alert, #sml-compliance-results-panel, .sml-compliance-fix-modal, .sml-compliance-fix-modal-backdrop")) {
@@ -5665,7 +5720,8 @@ export class smlCompliance {
         existingGroup.push({
           element: link,
           label: linkAuditLabel,
-          destination: normalizedDestination
+          destination: normalizedDestination,
+          tableRowContext: getTableRowLinkContext(link)
         });
         linkTextGroups.set(normalizedLinkAuditLabel, existingGroup);
       }
@@ -5766,11 +5822,27 @@ export class smlCompliance {
         continue;
       }
 
+      const normalizedRowContexts = entries.map((entry) => normalizeAccessibleNameText(entry.tableRowContext));
+      const rowContextCounts = new Map();
+      for (const rowContext of normalizedRowContexts) {
+        if (rowContext) {
+          rowContextCounts.set(rowContext, (rowContextCounts.get(rowContext) || 0) + 1);
+        }
+      }
+      const contextFreeEntries = entries.filter((entry) => {
+        const rowContext = normalizeAccessibleNameText(entry.tableRowContext);
+        return !rowContext || rowContextCounts.get(rowContext) !== 1;
+      });
+
+      if (contextFreeEntries.length < 2) {
+        continue;
+      }
+
       const destinationSummary = uniqueDestinations
         .map((destination) => `"${destination}"`)
         .join(", ");
 
-      for (const entry of entries) {
+      for (const entry of contextFreeEntries) {
         this.addAlert("warning", "Duplicate Link Text, Different Destination",
           `Link text "${entry.label}" points to different destinations. Repeated links with the same name should not send users to different places. Found destinations: ${destinationSummary}`, entry.element);
       }
@@ -5911,22 +5983,42 @@ export class smlCompliance {
         }
       }
 
-      // Search input accessibility checks
       if (input.type === "search") {
-        // Check for accessible name
-        const hasAccessibleName = 
+        const hasAccessibleName =
           input.hasAttribute("aria-label") ||
           input.hasAttribute("aria-labelledby") ||
           (input.id && document.querySelector(`label[for="${input.id}"]`));
-        
+
         if (!hasAccessibleName) {
           this.addAlert("warning", "Search Input Missing Accessible Name",
             `This search input needs an accessible name so users know what they can search for.`, input);
         }
+
+        const inputRoles = String(input.getAttribute("role") || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const hasSearchRoleOnInput = inputRoles.includes("search");
+        let hasSearchLandmark = false;
+        let ancestor = input.parentElement;
+
+        while (ancestor instanceof Element) {
+          const ancestorRoles = String(ancestor.getAttribute("role") || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+          if (ancestorRoles.includes("search")) {
+            hasSearchLandmark = true;
+            break;
+          }
+          ancestor = ancestor.parentElement;
+        }
+
+        if (hasSearchRoleOnInput) {
+          this.addAlert("error", "Search Landmark Role on Input",
+            `role="search" belongs on a container around this type="search" input, not on the input itself.`, input);
+        }
+
+        if (!hasSearchLandmark) {
+          this.addAlert("info", "Search Landmark Missing",
+            `Place this type="search" input inside a labeled container with role="search".`, input);
+        }
       }
 
-      // Native checkbox/radio inputs already expose implicit semantics.
-      // Do not require explicit role attributes on native controls.
     }
   }
 

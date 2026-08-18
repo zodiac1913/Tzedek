@@ -126,7 +126,7 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ],
     reviewChecklist: [
       "Differentiate the links with the destination name, action, or item being opened.",
-      "Review repeated cards, tables, and search results where duplicate labels are common.",
+      "Repeated table-row actions can stay short when each row provides unique, visible identifying context.",
       "If the destinations are truly the same, consider whether the duplication is intentional or can be simplified."
     ]
   },
@@ -356,17 +356,30 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "If the message updates dynamically, confirm the new text is still tied to the same field."
     ]
   },
-  "Search Input Role Missing": {
-    overview: "This finding appears when a search field is not exposed as search-related markup, even though the control is clearly acting like a search box.",
+  "Search Landmark Missing": {
+    overview: "This finding appears when a type=search field is not contained by an element with role=search.",
     whyItMatters: [
-      "Search is a common landmarked task, and users benefit when it is announced as such.",
-      "Treating a search control like a generic text field hides useful intent from assistive technology.",
-      "Named search patterns are easier to discover in complex headers, toolbars, and dashboards."
+      "Search is a common landmarked task, and users benefit when the container is announced as search.",
+      "A search landmark makes the search area easier to discover in complex headers, toolbars, and dashboards.",
+      "The role belongs on the search container, not on the input itself."
     ],
     reviewChecklist: [
-      "Use a search input pattern or a labeled search form when the control is genuinely for search.",
-      "Give the field or form a meaningful search label, not just the word 'search'.",
+      "Wrap the type=search input in a container with role=search.",
+      "Give that container a meaningful label when the page has more than one search area.",
       "Do not force search semantics onto fields that are really filters, lookups, or freeform text entry."
+    ]
+  },
+  "Search Landmark Role on Input": {
+    overview: "This finding appears when role=search is placed directly on a type=search input instead of on its containing search area.",
+    whyItMatters: [
+      "role=search identifies a landmark region, not an individual input control.",
+      "Putting the landmark role on the input replaces its native search-input semantics.",
+      "A correctly marked container lets assistive technology expose the entire search area consistently."
+    ],
+    reviewChecklist: [
+      "Remove role=search from the type=search input.",
+      "Add role=search to a container that contains the input and related search controls.",
+      "Keep the input as type=search so it retains its native semantics."
     ]
   },
   "Missing Error Message Element": {

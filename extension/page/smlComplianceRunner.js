@@ -16,6 +16,7 @@
   const PANEL_STYLE_ID = "sml-compliance-results-style";
   let currentCompliance = null;
   let currentOptions = null;
+  let currentGetMoreInfoUrl = null;
   let refreshInFlight = false;
 
   function getRuntimeConfig() {
@@ -203,6 +204,9 @@
 
   function cacheExports(module) {
     if (module && typeof module.smlCompliance === "function") {
+      if (typeof module.getMoreInfoUrl === "function") {
+        currentGetMoreInfoUrl = module.getMoreInfoUrl;
+      }
       if (typeof window.smlCompliance !== "function") {
         window.smlCompliance = module.smlCompliance;
       }
@@ -257,6 +261,9 @@
         if (timedOut) return;
         window.clearTimeout(timeoutId);
         window.removeEventListener(readyEventName, onReady);
+        if (typeof window.smlComplianceGetMoreInfoUrl === "function") {
+          currentGetMoreInfoUrl = window.smlComplianceGetMoreInfoUrl;
+        }
         if (typeof window.smlCompliance === "function") {
           resolve(window.smlCompliance);
         } else {
@@ -270,7 +277,7 @@
       const script = document.createElement("script");
       script.id = scriptId;
       script.type = "module";
-      script.textContent = "import { smlCompliance, runComplianceAudit } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.dispatchEvent(new Event('" + readyEventName + "'));";
+      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.dispatchEvent(new Event('" + readyEventName + "'));";
       script.onerror = function () {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
@@ -343,6 +350,10 @@
     console.groupEnd();
   }
 
+  function waitForNextPaint() {
+    return new Promise(resolve => window.requestAnimationFrame(resolve));
+  }
+
   async function executeAuditAndRender() {
     if (!currentCompliance || typeof currentCompliance.runCompleteAudit !== "function") {
       throw new Error("SMLC compliance instance is unavailable");
@@ -361,7 +372,9 @@
       document.querySelectorAll(".sml-compliance-alert-toggle[aria-expanded='true']").forEach((el) => {
         el.setAttribute("aria-expanded", "false");
       });
-      
+
+      setTzedekLoadingState(true);
+  await waitForNextPaint();
       const report = await currentCompliance.runCompleteAudit();
       window[REPORT_FLAG] = report;
       if (currentOptions?.showIssuePanel) {
@@ -370,6 +383,7 @@
       printSummary(report);
       return report;
     } finally {
+      setTzedekLoadingState(false);
       refreshInFlight = false;
     }
   }
@@ -655,7 +669,10 @@
       "#" + PANEL_ID + " .smlc-toggle-btn{background:#fff !important;color:#0f172a !important;}",
       "#" + PANEL_ID + " .smlc-refresh-btn{display:inline-flex;align-items:center;justify-content:center;min-width:31px;background:#bae6fd !important;color:#082f49 !important;line-height:1;font-size:1.75rem;box-shadow:0 0.35rem 0.9rem rgba(125,211,252,0.45);}",
       "#" + PANEL_ID + " .smlc-refresh-btn:disabled{opacity:0.65;cursor:progress;}",
-      "#" + PANEL_ID + " .smlc-body{margin-top:0.55rem;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;}",
+      "#" + PANEL_ID + " .smlc-loading-progress{margin:0.65rem -1rem -0.75rem;overflow:hidden;border-radius:0 0 8px 8px;}",
+      "#" + PANEL_ID + " .smlc-loading-progress .progress{height:2rem;border-radius:0;background:#cbd5e1;}",
+      "#" + PANEL_ID + " .smlc-loading-progress .progress-bar{font-weight:700;letter-spacing:0;}",
+      "#" + PANEL_ID + " .smlc-body{margin-top:0.55rem;max-height:min(70vh,44rem);overflow-y:auto;overflow-x:hidden;}",
       "#" + PANEL_ID + " .smlc-controls{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;margin:0.65rem 0;}",
       "#" + PANEL_ID + " .smlc-summary{display:flex;flex-wrap:wrap;gap:0.4rem;}",
       "#" + PANEL_ID + " .smlc-pill{padding:0.2rem 0.5rem;border-radius:999px;border:1px solid #334155;font-size:0.8rem;background:#e2e8f0;cursor:pointer;font-weight:700;color:#0f172a;}",
@@ -669,8 +686,16 @@
       "#" + PANEL_ID + " .smlc-title{font-weight:700;margin-bottom:0.2rem;}",
       "#" + PANEL_ID + " .smlc-plain{font-size:0.78rem;line-height:1.35;color:#475569;margin-bottom:0.3rem;}",
       "#" + PANEL_ID + " .smlc-meta{font-size:0.82rem;color:#475569;margin-top:0.25rem;}",
-      "#" + PANEL_ID + " .smlc-jump-link{display:inline-block;margin-top:0.35rem;color:#1d4ed8;font-size:0.82rem;font-weight:600;text-decoration:underline;}",
+      "#" + PANEL_ID + " .smlc-color-swatches{display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem 0.55rem;margin-top:0.35rem;font-size:0.82rem;color:#334155;}",
+      "#" + PANEL_ID + " .smlc-color-chip{display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap;}",
+      "#" + PANEL_ID + " .smlc-color-chip-label{font-weight:700;}",
+      "#" + PANEL_ID + " .smlc-color-chip-swatch{display:inline-block;width:1em;height:1em;border:1px solid #334155;box-sizing:border-box;flex:0 0 auto;}",
+      "#" + PANEL_ID + " .smlc-color-chip-hex{font-family:monospace;}",
+      "#" + PANEL_ID + " .smlc-issue-actions{display:flex;align-items:center;flex-wrap:wrap;gap:0.85rem;margin-top:0.35rem;}",
+      "#" + PANEL_ID + " .smlc-jump-link{display:inline-block;color:#1d4ed8;font-size:0.82rem;font-weight:600;text-decoration:underline;}",
       "#" + PANEL_ID + " .smlc-jump-link:hover{color:#1e3a8a;}",
+      "#" + PANEL_ID + " .smlc-reference-link{display:inline-block;color:#1d4ed8;font-size:0.82rem;font-weight:600;text-decoration:underline;}",
+      "#" + PANEL_ID + " .smlc-reference-link:hover{color:#1e3a8a;}",
       "#" + PANEL_ID + " .smlc-issue-message-link{color:inherit;text-decoration:underline dotted #1d4ed8;cursor:pointer;}",
       "#" + PANEL_ID + " .smlc-issue-message-link:hover{color:#1d4ed8;text-decoration:solid underline #1d4ed8;}",
       ".smlc-target-flash{outline:4px solid #f59e0b !important;outline-offset:2px !important;transition:outline-color 900ms ease;}",
@@ -682,6 +707,64 @@
     ].join("");
     markSmlcElementTree(style);
     document.head.appendChild(style);
+  }
+
+  function getLoadingProgressMarkup(message) {
+    const text = escapeHtml(String(message || "Tzedek Is Doing Its Thing...Please Wait"));
+    return "<div class='smlc-loading-progress' data-smlc-loading-progress role='status' aria-live='polite'>"
+      + "<div class='progress' role='progressbar' aria-label='Tzedek audit in progress' aria-valuetext='" + escapeAttribute(String(message || "Tzedek Is Doing Its Thing...Please Wait")) + "'>"
+      + "<div class='progress-bar bg-primary progress-bar-striped progress-bar-animated w-100'>" + text + "</div>"
+      + "</div>"
+      + "</div>";
+  }
+
+  function renderLoadingPanel(message) {
+    const existing = document.getElementById(PANEL_ID);
+    if (existing) existing.remove();
+
+    ensurePanelStyles();
+
+    const panel = document.createElement("section");
+    const repositoryUrl = getRepositoryUrl();
+    panel.id = PANEL_ID;
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "Tzedek audit issues");
+    panel.setAttribute("aria-busy", "true");
+    panel.insertAdjacentHTML("beforeend", [
+      "<div class='smlc-headline'>",
+      "<div class='smlc-headline-main'><button type='button' class='smlc-toggle-btn' disabled aria-disabled='true'>Auditing page</button></div>",
+      "<div class='smlc-headline-center'><a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(getDisplayVersion()) + "</a></div>",
+      "<div class='smlc-actions'><button type='button' class='btn btn-dark' disabled aria-disabled='true'>Tzedek</button></div>",
+      "</div>",
+      getLoadingProgressMarkup(message)
+    ].join(""));
+    markSmlcElementTree(panel);
+    (document.body || document.documentElement).prepend(panel);
+  }
+
+  function setTzedekLoadingState(isLoading, message) {
+    let panel = document.getElementById(PANEL_ID);
+    if (!isLoading) {
+      if (panel) {
+        panel.removeAttribute("aria-busy");
+        panel.querySelector("[data-smlc-loading-progress]")?.remove();
+      }
+      return;
+    }
+
+    if (!panel) {
+      renderLoadingPanel(message);
+      return;
+    }
+
+    panel.setAttribute("aria-busy", "true");
+    const loadingProgress = panel.querySelector("[data-smlc-loading-progress]");
+    if (loadingProgress) {
+      loadingProgress.replaceWith(document.createRange().createContextualFragment(getLoadingProgressMarkup(message)));
+      return;
+    }
+
+    panel.insertAdjacentHTML("beforeend", getLoadingProgressMarkup(message));
   }
 
   function buildIssueGroups(alerts) {
@@ -697,20 +780,32 @@
   function buildIssueRecords(alerts) {
     return (Array.isArray(alerts) ? alerts : []).map((alert, index) => {
       const level = (alert.level || "info").toLowerCase();
+      const title = alert.title || "Issue";
+      const message = stripHtml(alert.message || "");
       return {
         id: "smlc-issue-" + index,
         originalIndex: index,
         pageOrder: getIssuePageOrder(alert.element, index),
         level,
         levelLabel: getLevelLabel(level),
-        title: alert.title || "Issue",
+        title,
         plainDescription: alert.plainDescription || "",
-        message: stripHtml(alert.message || ""),
+        message,
+        referenceUrl: getIssueReferenceUrl(title, message),
         contrastSwatches: normalizeContrastSwatches(alert.contrastSwatches),
         why: getWhyText(level),
         targetId: getSafeTargetId(alert.element, index)
       };
     });
+  }
+
+  function getIssueReferenceUrl(title, message) {
+    if (typeof currentGetMoreInfoUrl === "function") {
+      const mappedUrl = currentGetMoreInfoUrl(title, message);
+      if (typeof mappedUrl === "string" && mappedUrl.trim()) return mappedUrl;
+    }
+
+    return "https://developer.mozilla.org/en-US/search?q=" + encodeURIComponent(String(title || "accessibility"));
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -847,6 +942,8 @@
         ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>" + escapeHtml(issue.message) + "</a>"
         : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body'>" + escapeHtml(issue.message) + "</a>";
 
+      const referenceLink = "<a class='smlc-reference-link' href='" + escapeAttribute(issue.referenceUrl) + "' target='_blank' rel='noopener noreferrer'>More Info</a>";
+
       return [
         "<li class='smlc-item'>",
         "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
@@ -854,7 +951,7 @@
         renderContrastSwatches(issue.contrastSwatches),
         "<div>" + messageHtml + "</div>",
         "<div class='smlc-meta'><strong>Why this matters:</strong> " + escapeHtml(issue.why) + "</div>",
-        jumpLink,
+        "<div class='smlc-issue-actions'>" + referenceLink + jumpLink + "</div>",
         "</li>"
       ].join("");
       }).join("");
