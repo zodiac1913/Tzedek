@@ -14,9 +14,15 @@
   const MODULE_URL = resolveModuleUrl();
   const PANEL_ID = "sml-compliance-results-panel";
   const PANEL_STYLE_ID = "sml-compliance-results-style";
+  const TZEDEK_SMLC_ISSUES_BODY_ID = "tzedek-smlc-issues-body";
+  const TZEDEK_SMLC_SORT_SELECT_ID = "tzedek-smlc-sort-select";
+  const TZEDEK_SMLC_ISSUE_TARGET_ID_PREFIX = "tzedek-smlc-issue-target-";
+  const TZEDEK_FINDING_TARGET_ID_PREFIX = "tzedekIdNum";
+  const TZEDEK_SMLC_OWNED_CLASS = "tzedek-smlc-owned";
   let currentCompliance = null;
   let currentOptions = null;
   let currentGetMoreInfoUrl = null;
+  let currentGetMoreInfoLinks = null;
   let refreshInFlight = false;
 
   function getRuntimeConfig() {
@@ -161,8 +167,10 @@
     if (!(element instanceof Element)) return element;
 
     element.setAttribute("data-smlc", "1");
+    element.classList.add(TZEDEK_SMLC_OWNED_CLASS);
     element.querySelectorAll("*").forEach((child) => {
       child.setAttribute("data-smlc", "1");
+      child.classList.add(TZEDEK_SMLC_OWNED_CLASS);
     });
 
     applySmlcDefaultTabPolicy(element);
@@ -206,6 +214,9 @@
     if (module && typeof module.smlCompliance === "function") {
       if (typeof module.getMoreInfoUrl === "function") {
         currentGetMoreInfoUrl = module.getMoreInfoUrl;
+      }
+      if (typeof module.getMoreInfoLinks === "function") {
+        currentGetMoreInfoLinks = module.getMoreInfoLinks;
       }
       if (typeof window.smlCompliance !== "function") {
         window.smlCompliance = module.smlCompliance;
@@ -264,6 +275,9 @@
         if (typeof window.smlComplianceGetMoreInfoUrl === "function") {
           currentGetMoreInfoUrl = window.smlComplianceGetMoreInfoUrl;
         }
+        if (typeof window.smlComplianceGetMoreInfoLinks === "function") {
+          currentGetMoreInfoLinks = window.smlComplianceGetMoreInfoLinks;
+        }
         if (typeof window.smlCompliance === "function") {
           resolve(window.smlCompliance);
         } else {
@@ -277,7 +291,7 @@
       const script = document.createElement("script");
       script.id = scriptId;
       script.type = "module";
-      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.dispatchEvent(new Event('" + readyEventName + "'));";
+      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.dispatchEvent(new Event('" + readyEventName + "'));";
       script.onerror = function () {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
@@ -365,6 +379,7 @@
     refreshInFlight = true;
     try {
       // Clean up all existing inline alerts and highlights before re-running
+      document.getElementById(PANEL_ID)?.remove();
       document.querySelectorAll(".sml-compliance-alert").forEach(el => el.remove());
       document.querySelectorAll(".sml-compliance-alert-panes-floating").forEach(el => el.remove());
       document.querySelectorAll(".smlc-unblocked-alert-button").forEach(el => el.remove());
@@ -600,8 +615,9 @@
     if (!(target instanceof Element) || !target.isConnected) return "";
     if (target.id && !/\s/.test(target.id)) return target.id;
 
-    const generatedId = "smlc-issue-target-" + Date.now() + "-" + index;
+    const generatedId = TZEDEK_FINDING_TARGET_ID_PREFIX + String(index + 1);
     target.id = generatedId;
+    target.setAttribute("data-tzedek-finding", String(index + 1));
     target.setAttribute("data-smlc-generated-id", "1");
     return generatedId;
   }
@@ -625,9 +641,10 @@
     document.querySelectorAll(".smlc-target-flash").forEach(el => clearJumpTargetHighlight(el));
 
     document.querySelectorAll("[data-smlc-generated-id='1']").forEach(el => {
-      if (el.id && el.id.startsWith("smlc-issue-target-")) {
+      if (el.id && (el.id.startsWith(TZEDEK_SMLC_ISSUE_TARGET_ID_PREFIX) || el.id.startsWith(TZEDEK_FINDING_TARGET_ID_PREFIX))) {
         el.removeAttribute("id");
       }
+      el.removeAttribute("data-tzedek-finding");
       el.removeAttribute("data-smlc-generated-id");
     });
 
@@ -783,7 +800,7 @@
       const title = alert.title || "Issue";
       const message = stripHtml(alert.message || "");
       return {
-        id: "smlc-issue-" + index,
+        id: "tzedek-smlc-issue-" + index,
         originalIndex: index,
         pageOrder: getIssuePageOrder(alert.element, index),
         level,
@@ -791,7 +808,7 @@
         title,
         plainDescription: alert.plainDescription || "",
         message,
-        referenceUrl: getIssueReferenceUrl(title, message),
+        referenceLinks: getIssueReferenceLinks(title, message),
         contrastSwatches: normalizeContrastSwatches(alert.contrastSwatches),
         why: getWhyText(level),
         targetId: getSafeTargetId(alert.element, index)
@@ -805,7 +822,33 @@
       if (typeof mappedUrl === "string" && mappedUrl.trim()) return mappedUrl;
     }
 
-    return "https://developer.mozilla.org/en-US/search?q=" + encodeURIComponent(String(title || "accessibility"));
+    const configuredBaseUrl = getRuntimeConfig().assetBaseUrl;
+    const assetBaseUrl = typeof configuredBaseUrl === "string" && configuredBaseUrl.trim()
+      ? configuredBaseUrl
+      : new URL("./assets/", MODULE_URL).href;
+    const guideUrl = new URL("issue-guide.html", assetBaseUrl);
+    guideUrl.searchParams.set("title", String(title || "Accessibility Finding").trim());
+    if (String(message || "").trim()) {
+      guideUrl.searchParams.set("message", String(message).trim());
+    }
+    return guideUrl.href;
+  }
+
+  function getIssueReferenceLinks(title, message) {
+    if (typeof currentGetMoreInfoLinks === "function") {
+      const mappedLinks = currentGetMoreInfoLinks(title, message);
+      if (Array.isArray(mappedLinks)) {
+        const validLinks = mappedLinks
+          .map((link) => ({
+            label: String(link?.label || "More Info").trim() || "More Info",
+            url: String(link?.url || "").trim()
+          }))
+          .filter((link) => link.url);
+        if (validLinks.length > 0) return validLinks;
+      }
+    }
+
+    return [{ label: "More Info", url: getIssueReferenceUrl(title, message) }];
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -846,7 +889,7 @@
           // Find the target element for this alert
           const alertContainer = btn.closest(".sml-compliance-alert");
           const targetId = btn.getAttribute("data-smlc-target") || 
-                          alertContainer?.querySelector("[id^='smlc-issue-target-']")?.id;
+                          alertContainer?.querySelector("[id^='" + TZEDEK_SMLC_ISSUE_TARGET_ID_PREFIX + "']")?.id;
           const targetElement = targetId ? document.getElementById(targetId) : null;
           
           // Apply highlight to target so user knows what element has the issue
@@ -894,7 +937,7 @@
           
           const parent = btn.closest("[data-smlc-generated-id]");
           if (parent) {
-            const sibling = parent.querySelector("[id^='smlc-issue-target-']");
+            const sibling = parent.querySelector("[id^='" + TZEDEK_SMLC_ISSUE_TARGET_ID_PREFIX + "']");
             if (sibling && sibling.id) {
               blockedLabels.push(sibling.id);
             }
@@ -942,7 +985,12 @@
         ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>" + escapeHtml(issue.message) + "</a>"
         : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body'>" + escapeHtml(issue.message) + "</a>";
 
-      const referenceLink = "<a class='smlc-reference-link' href='" + escapeAttribute(issue.referenceUrl) + "' target='_blank' rel='noopener noreferrer'>More Info</a>";
+      const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
+        ? issue.referenceLinks
+        : [{ label: "More Info", url: issue.referenceUrl || "" }])
+        .filter((link) => link.url)
+        .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+        .join("");
 
       return [
         "<li class='smlc-item'>",
@@ -950,8 +998,9 @@
         issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
         renderContrastSwatches(issue.contrastSwatches),
         "<div>" + messageHtml + "</div>",
+        issue.targetId ? "<div class='smlc-target-id'><strong>Element ID:</strong> <code>" + escapeHtml(issue.targetId) + "</code></div>" : "",
         "<div class='smlc-meta'><strong>Why this matters:</strong> " + escapeHtml(issue.why) + "</div>",
-        "<div class='smlc-issue-actions'>" + referenceLink + jumpLink + "</div>",
+        "<div class='smlc-issue-actions'>" + referenceLinks + jumpLink + "</div>",
         "</li>"
       ].join("");
       }).join("");
@@ -988,7 +1037,7 @@
 
     function updateToggleButtonLabel(visibleCountOverride) {
       const toggleButton = panel.querySelector("button[data-smlc-toggle]");
-      const body = panel.querySelector("#smlc-issues-body");
+      const body = panel.querySelector("#" + TZEDEK_SMLC_ISSUES_BODY_ID);
       if (!toggleButton || !body) return;
 
       const visibleCount = Number.isFinite(visibleCountOverride)
@@ -1008,7 +1057,7 @@
     panel.innerHTML = [
       "<div class='smlc-headline'>",
       "<div class='smlc-headline-main'>",
-      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='smlc-issues-body'>See all issues (" + total + ")</button>",
+      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "'>See all issues (" + total + ")</button>",
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
@@ -1021,11 +1070,11 @@
       "</div>",
       updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice'>✕</button></div>" : "",
       blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
-      "<div id='smlc-issues-body' class='smlc-body' hidden>",
+      "<div id='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' class='smlc-body' hidden>",
       "<div class='smlc-controls'>",
       "<div class='smlc-summary' data-smlc-summary></div>",
-      "<label class='smlc-sort-wrap' for='smlc-sort-select'>Order by",
-      "<select id='smlc-sort-select' class='smlc-sort-select' data-smlc-sort>",
+      "<label class='smlc-sort-wrap' for='" + TZEDEK_SMLC_SORT_SELECT_ID + "'>Order by",
+      "<select id='" + TZEDEK_SMLC_SORT_SELECT_ID + "' class='smlc-sort-select' data-smlc-sort>",
       "<option value='found'>Order Found</option>",
       "<option value='page'>On Page</option>",
       "<option value='priority'>Alert Priority</option>",
@@ -1053,6 +1102,8 @@
       issuesHost.innerHTML = visibleIssues.length
         ? "<ol class='smlc-issue-list'>" + issuesHtml(visibleIssues) + "</ol>"
         : "<p>No issues match the current filters.</p>";
+      markSmlcElementTree(summaryHost);
+      markSmlcElementTree(issuesHost);
 
       updateToggleButtonLabel(visibleIssues.length);
     }
@@ -1062,7 +1113,7 @@
     panel.addEventListener("click", function (event) {
       const toggleBtn = event.target.closest("button[data-smlc-toggle]");
       if (toggleBtn) {
-        const body = panel.querySelector("#smlc-issues-body");
+        const body = panel.querySelector("#" + TZEDEK_SMLC_ISSUES_BODY_ID);
         if (!body) return;
         const willOpen = body.hidden;
         body.hidden = !willOpen;

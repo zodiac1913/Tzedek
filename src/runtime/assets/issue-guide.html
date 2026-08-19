@@ -160,15 +160,11 @@
           <div id="fixSnippets"></div>
         </article>
 
-        <article class="guide-card" id="emptySection" hidden>
-          <h2>Guide Status</h2>
-          <p>This finding does not have a richer local guide entry yet, but Tzedek can still show the current summary and any available generic fix patterns.</p>
-        </article>
       </section>
     </main>
 
     <script type="module">
-      import { getComplianceFixContent, getMoreInfoUrl, getPlainLanguageIssueDescription } from "../smlCompliance.js";
+      import { getCanonicalReferenceLinks, getComplianceFixContent, getPlainLanguageIssueDescription } from "../smlCompliance.js";
       import { getIssueGuideDetails } from "./tzedekIssueGuideData.js";
 
       const params = new URLSearchParams(window.location.search);
@@ -176,21 +172,21 @@
       const message = (params.get("message") || "").trim();
       const summary = getPlainLanguageIssueDescription(title);
       const fixContent = getComplianceFixContent(title, null);
-      const externalUrl = getMoreInfoUrl(title, message);
+      const externalLinks = getCanonicalReferenceLinks(title, message);
       const guideDetails = getIssueGuideDetails(title);
 
       document.title = `${title} | Tzedek Issue Guide`;
       document.getElementById("guideTitle").textContent = title;
-      document.getElementById("guideSummary").textContent = summary || "Tzedek does not have a short summary for this finding yet.";
+      document.getElementById("guideSummary").textContent = summary || `Tzedek found ${title} on the checked page.`;
 
       const actions = document.getElementById("guideActions");
-      if (externalUrl) {
+      for (const externalLink of externalLinks) {
         const link = document.createElement("a");
         link.className = "btn btn-primary";
-        link.href = externalUrl;
+        link.href = externalLink.url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
-        link.textContent = "Open Canonical Reference";
+        link.textContent = externalLink.label || "More Info";
         actions.appendChild(link);
       }
 
@@ -207,10 +203,9 @@
         document.getElementById("detectedMessage").textContent = message;
       }
 
-      if (guideDetails?.overview) {
-        document.getElementById("overviewSection").hidden = false;
-        document.getElementById("overviewText").textContent = guideDetails.overview;
-      }
+      document.getElementById("overviewSection").hidden = false;
+      document.getElementById("overviewText").textContent = guideDetails?.overview
+        || `The flagged element meets Tzedek's ${title} check. The detected finding identifies the exact condition that must be corrected.`;
 
       if (Array.isArray(guideDetails?.whyItMatters) && guideDetails.whyItMatters.length > 0) {
         document.getElementById("whySection").hidden = false;
@@ -222,14 +217,19 @@
         }
       }
 
-      if (Array.isArray(guideDetails?.reviewChecklist) && guideDetails.reviewChecklist.length > 0) {
-        document.getElementById("reviewSection").hidden = false;
-        const reviewList = document.getElementById("reviewList");
-        for (const item of guideDetails.reviewChecklist) {
-          const li = document.createElement("li");
-          li.textContent = item;
-          reviewList.appendChild(li);
-        }
+      document.getElementById("reviewSection").hidden = false;
+      const reviewList = document.getElementById("reviewList");
+      const reviewItems = Array.isArray(guideDetails?.reviewChecklist) && guideDetails.reviewChecklist.length > 0
+        ? guideDetails.reviewChecklist
+        : [
+            "Return to the checked page and use Jump to location to inspect the flagged element.",
+            message || `Correct the ${title} condition on the flagged element and any related markup.`,
+            "Run Tzedek again and confirm this finding no longer appears."
+          ];
+      for (const item of reviewItems) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        reviewList.appendChild(li);
       }
 
       if (fixContent) {
@@ -253,10 +253,10 @@
           wrapper.appendChild(pre);
           fixSnippets.appendChild(wrapper);
         }
-      }
-
-      if (!guideDetails && !fixContent) {
-        document.getElementById("emptySection").hidden = false;
+      } else {
+        document.getElementById("fixSection").hidden = false;
+        document.getElementById("fixDescription").textContent = message
+          || `Correct the ${title} condition on the flagged element, then run Tzedek again to verify the repair.`;
       }
     </script>
   </body>

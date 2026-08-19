@@ -1,4 +1,32 @@
 export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
+  "Duplicate ID": {
+    overview: "This finding means two or more elements use the same id value. An id must identify exactly one element on the page so labels, ARIA references, fragment links, scripts, and tests reach the intended target.",
+    whyItMatters: [
+      "A label or ARIA relationship can resolve to the wrong element, giving assistive technology an incorrect name or description.",
+      "A same-page link, script, or automated test may operate on the first matching element and ignore the intended one.",
+      "Duplicate IDs make behavior dependent on document order and therefore unreliable."
+    ],
+    reviewChecklist: [
+      "Use Jump to location to inspect each element reported with the duplicated value.",
+      "Rename each repeated id so every value is unique in the complete rendered page, including dialogs and child components.",
+      "Update every matching for, aria-labelledby, aria-describedby, aria-controls, headers, list, form, and href fragment reference.",
+      "Run Tzedek again and confirm both Duplicate ID and Duplicate ID Referenced findings are gone."
+    ]
+  },
+  "Duplicate ID Referenced": {
+    overview: "This finding means an element references an id value used by more than one element. The browser cannot provide a dependable one-to-one label, description, control, table-header, or navigation relationship.",
+    whyItMatters: [
+      "Assistive technology may announce the wrong label or description, or omit the relationship entirely.",
+      "Users cannot rely on controls and same-page links reaching the element named by the interface.",
+      "Fixing only the reference does not solve the underlying duplicate unless each target id also becomes unique."
+    ],
+    reviewChecklist: [
+      "Find every element using the referenced id and assign each one a unique value.",
+      "Point this element's reference to the one intended target using its new unique id.",
+      "Check all ID-reference attributes, especially for, aria-labelledby, aria-describedby, aria-controls, headers, list, form, and href fragments.",
+      "Run Tzedek again to verify the relationship resolves to exactly one element."
+    ]
+  },
   "Missing Page Title": {
     overview: "This finding appears when the page has no meaningful document title in the browser tab.",
     whyItMatters: [

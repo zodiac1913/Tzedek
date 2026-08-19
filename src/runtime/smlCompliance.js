@@ -112,6 +112,10 @@ const ALERT_CLASSES = {
 };
 
 const INLINE_ALERT_STYLE_ID = "sml-compliance-inline-alert-style";
+const TZEDEK_SMLC_CLASS_PREFIX = "tzedek-smlc-";
+const TZEDEK_SMLCA_CLASS_PREFIX = "tzedek-smlca-";
+const TZEDEK_SMLC_OWNED_CLASS = `${TZEDEK_SMLC_CLASS_PREFIX}owned`;
+const TZEDEK_SMLCA_OWNED_CLASS = `${TZEDEK_SMLCA_CLASS_PREFIX}owned`;
 const INLINE_ALERT_HOSTS = new WeakMap();
 const INLINE_ALERT_WRAPPERS = new WeakMap();
 const INLINE_ALERT_REPOSITIONERS = new WeakMap();
@@ -130,10 +134,7 @@ const DEFAULT_SMOKE_IMAGE_URL = new URL("./assets/smoke.png", import.meta.url).h
 const BROKEN_LINK_STATUS_CACHE = new Map();
 const MDN_ARIA_REFERENCE_BASE = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/";
 const MDN_ARIA_ROLE_REFERENCE_BASE = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/";
-const MDN_SEARCH_BASE = "https://developer.mozilla.org/en-US/search?q=";
 const MORE_INFO_URL_BY_TITLE = {
-  "Duplicate ID": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/id",
-  "Duplicate ID Referenced": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/id",
   "ARIA Attribute Misspelled": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA",
   "Invalid Role Value": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles",
   "Heading Role Missing aria-level": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/heading_role",
@@ -225,93 +226,6 @@ function getRuntimeAssetUrl(fileName) {
 }
 
 const SMOKE_IMAGE_URL = getRuntimeAssetUrl("smoke.png");
-const MORE_INFO_QUERY_BY_TITLE = {
-  "Duplicate ID": "HTML id attribute uniqueness accessibility",
-  "Duplicate ID Referenced": "HTML id attribute uniqueness accessibility",
-  "ARIA Attribute Misspelled": "ARIA attribute spelling accessibility",
-  "Invalid Role Value": "ARIA role accessibility",
-  "Heading Role Missing aria-level": "ARIA heading role aria-level accessibility",
-  "Invalid aria-level Value": "aria-level accessibility",
-  "Duplicate aria-labelledby Reference": "aria-labelledby accessibility",
-  "Duplicate aria-describedby Reference": "aria-describedby accessibility",
-  "Focusable Element Hidden From Screen Readers": "aria-hidden focus accessibility",
-  "Missing Page Title": "HTML title element accessibility",
-  "Vague Page Title": "HTML title element accessibility",
-  "Missing Language Declaration": "HTML lang attribute accessibility",
-  "Missing Lang Attribute": "HTML lang attribute accessibility",
-  "Redundant Lang Attribute": "HTML lang attribute accessibility",
-  "Missing Viewport Meta Tag": "HTML viewport meta accessibility",
-  "Missing Skip to Main Content Link": "skip link accessibility",
-  "Missing Skip Link": "skip link accessibility",
-  "No Headings Found": "HTML headings accessibility",
-  "Missing Level 1 Heading": "HTML h1 accessibility",
-  "Multiple Level 1 Headings": "HTML headings accessibility",
-  "Heading Level Skip": "HTML heading hierarchy accessibility",
-  "Empty Heading": "HTML headings accessibility",
-  "Missing Alt Text": "HTML img alt attribute accessibility",
-  "Presentation Role Conflicts with Alt Text": "HTML img alt attribute accessibility",
-  "Empty Alt Text": "HTML img alt attribute accessibility",
-  "Redundant Alt Text": "HTML img alt attribute accessibility",
-  "Link Missing Text": "HTML link accessibility",
-  "Accessible Name Does Not Include Visible Label": "accessible name visible label accessibility",
-  "Vague Link Text": "HTML link accessibility descriptive link text",
-  "Ambiguous Link Text": "HTML link accessibility descriptive link text",
-  "Duplicate Link Text, Different Destination": "duplicate link text different destination accessibility",
-  "Broken Fragment Link": "HTML fragment link target accessibility",
-  "Broken Same-Origin Link": "same origin broken link accessibility",
-  "Same-Origin Link Redirects": "same origin link redirect accessibility",
-  "Same-Origin Link Requires Authentication": "same origin link authentication accessibility",
-  "Link Opens in New Window": "link opens in new window accessibility",
-  "Button Missing Text": "HTML button accessibility",
-  "Duplicate SR-Only Button Label": "screen reader only duplicate button label accessibility",
-  "Button Role Missing Keyboard Handler": "custom button keyboard accessibility",
-  "Button Role Not Focusable": "custom button focus accessibility",
-  "Button Role Keyboard Handler Not Statically Verifiable": "custom element delegated keyboard handler accessibility",
-  "Anchor Uses Button Role": "HTML anchor button role accessibility",
-  "Disabled State Not Announced": "aria-disabled accessibility",
-  "Icon-Only Button Missing Label": "icon button aria-label accessibility",
-  "Form Should Be Labeled": "HTML form accessibility aria-label",
-  "Grouped Choices Missing Fieldset": "fieldset legend radio checkbox group accessibility",
-  "Input Missing Label": "HTML form label accessibility",
-  "Required Field Not Indicated": "aria-required accessibility",
-  "Invalid Input Not Described": "aria-describedby form error accessibility",
-  "Search Input Missing Accessible Name": "search input accessible name label",
-  "Search Landmark Missing": "search landmark accessibility",
-  "Search Landmark Role on Input": "search landmark role input accessibility",
-  "Empty ARIA Label": "aria-label accessibility",
-  "Invalid aria-labelledby Reference": "aria-labelledby accessibility",
-  "Invalid aria-describedby Reference": "aria-describedby accessibility",
-  "Low Color Contrast": "color contrast accessibility",
-  "Missing Focus Indicator": "focus indicator accessibility",
-  "Non-Standard Click Handler": "button role keyboard accessibility",
-  "Audio Missing Transcript": "audio transcript accessibility",
-  "Iframe Missing Title": "HTML iframe title accessibility",
-  "Iframe Title Too Generic": "HTML iframe descriptive title accessibility",
-  "Embedded Content Missing Label": "embedded content accessible label accessibility",
-  "Video Missing Captions": "video captions accessibility",
-  "Video Missing Descriptions": "audio descriptions accessibility",
-  "Table Missing Caption": "HTML table caption accessibility",
-  "Table Missing thead": "HTML table thead accessibility",
-  "Table Missing tbody": "HTML table tbody accessibility",
-  "Table Header Missing Scope": "HTML th scope accessibility",
-  "Table Missing Header Cells": "HTML data table header cells accessibility",
-  "Complex Table Missing Header Associations": "complex table header association accessibility",
-  "Possible Layout Table": "layout table accessibility",
-  "Empty List": "HTML list accessibility",
-  "Invalid List Content": "HTML ul ol li accessibility",
-  "Motion Not Reduced": "prefers reduced motion accessibility",
-  "No Main Content": "main landmark accessibility",
-  "Missing Main Content Region": "main landmark accessibility",
-  "Missing Error Message Element": "form error message accessibility",
-  "Invalid aria-live Value": "aria-live accessibility",
-  "Live Region Should Have aria-atomic": "aria-atomic accessibility",
-  "Missing Navigation Landmark": "navigation landmark accessibility",
-  "Missing Main Landmark": "main landmark accessibility",
-  "Custom Navigation Container Missing Landmark": "custom navigation container landmark accessibility",
-  "Custom Main Content Container Missing Landmark": "custom main content landmark accessibility",
-  "Non-Semantic Button": "HTML button accessibility",
-  "Non-Semantic Link": "HTML link accessibility"
-};
 const COMMON_ARIA_ATTRIBUTE_MISSPELLINGS = {
   "aria-labeledby": "aria-labelledby",
   "arialabelledby": "aria-labelledby",
@@ -1403,7 +1317,7 @@ function ensureAuditTargetId(element) {
 
   const randomBytes = new Uint32Array(1);
   window.crypto.getRandomValues(randomBytes);
-  const generatedId = `smlc-audit-target-${Date.now()}-${randomBytes[0].toString(36)}`;
+  const generatedId = `tzedek-smlca-audit-target-${Date.now()}-${randomBytes[0].toString(36)}`;
   element.id = generatedId;
   return generatedId;
 }
@@ -1776,8 +1690,9 @@ function ensureInlineAlertStyles() {
     ".sml-compliance-alert-pane code{display:inline-block;max-width:100%;padding:0.08rem 0.35rem;border-radius:0.3rem;font-weight:700;white-space:normal;overflow-wrap:anywhere;word-break:break-word;vertical-align:top;}",
     ".sml-compliance-alert-pane.text-white code{color:#ffffff;background:#7e22ce;border:1px solid #c084fc;}",
     ".sml-compliance-alert-pane.text-dark code{color:#3b0764;background:#f3e8ff;border:1px solid #a855f7;}",
-    ".sml-compliance-alert-pane.text-white .sml-compliance-more-info{color:#e9d5ff;}",
-    ".sml-compliance-alert-pane.text-dark .sml-compliance-more-info{color:#6b21a8;}",
+    ".sml-compliance-alert-pane .sml-compliance-more-info{display:inline-flex;align-items:center;justify-content:center;max-width:100%;min-height:2rem;margin:0.65rem 0.4rem 0 0;padding:0.35rem 0.65rem;border:2px solid #bfdbfe;border-radius:0.4rem;color:#ffffff !important;background:#1d4ed8 !important;font:inherit;font-size:0.88rem;font-weight:800;line-height:1.2;text-decoration:none;white-space:normal;overflow-wrap:anywhere;cursor:pointer;box-shadow:0 0.35rem 0.8rem rgba(15,23,42,0.28);}",
+    ".sml-compliance-alert-pane .sml-compliance-more-info:hover,.sml-compliance-alert-pane .sml-compliance-more-info:focus{color:#ffffff !important;background:#1e40af !important;text-decoration:none;}",
+    ".sml-compliance-alert-pane .sml-compliance-more-info:focus-visible{outline:3px solid #fde68a;outline-offset:2px;}",
     ".sml-compliance-plain{display:block;margin-top:0.35rem;font-size:0.78rem;line-height:1.35;opacity:0.96;}",
     ".sml-compliance-color-value{display:inline-flex;align-items:center;gap:0.1em;cursor:copy;position:relative;z-index:2147483643;}",
     ".sml-compliance-color-value-static{cursor:default;}",
@@ -1818,7 +1733,9 @@ function getReferencedTextContent(idrefs) {
     .split(/\s+/)
     .map((id) => id.trim())
     .filter(Boolean)
-    .map((id) => String(document.getElementById(id)?.textContent || "").trim())
+    .map((id) => document.getElementById(id))
+    .filter((element) => element instanceof Element && !isSmlcOwnedElement(element))
+    .map((element) => String(element.textContent || "").trim())
     .filter((text) => text.length > 0)
     .join(" ")
     .trim();
@@ -1838,24 +1755,6 @@ function getAssociatedLabelText(element) {
   if (!(element instanceof Element)) return "";
 
   const getTrimmedText = (node) => String(node?.textContent || "").trim();
-  const getSiblingLabelText = (control) => {
-    const previousSiblingLabel = control.previousElementSibling;
-    if (previousSiblingLabel?.tagName === "LABEL") {
-      const previousSiblingText = getTrimmedText(previousSiblingLabel);
-      if (previousSiblingText) return previousSiblingText;
-    }
-
-    const parent = control.parentElement;
-    if (!parent) return "";
-
-    const sameContainerLabel = Array.from(parent.children)
-      .find((child) => child.tagName === "LABEL");
-    const sameContainerText = getTrimmedText(sameContainerLabel);
-    if (sameContainerText) return sameContainerText;
-
-    const formGroupLabel = control.closest(".form-group, .form-floating, .input-group")?.querySelector("label");
-    return getTrimmedText(formGroupLabel);
-  };
 
   const associatedLabelText = ("labels" in element && element.labels)
     ? Array.from(element.labels)
@@ -1866,10 +1765,9 @@ function getAssociatedLabelText(element) {
     : "";
 
   const wrappedLabelText = getTrimmedText(element.closest("label"));
-  const siblingLabelText = getSiblingLabelText(element);
   const byId = element.id ? document.querySelector(`label[for='${CSS.escape(element.id)}']`) : null;
 
-  return [associatedLabelText, wrappedLabelText, siblingLabelText, getTrimmedText(byId)]
+  return [associatedLabelText, wrappedLabelText, getTrimmedText(byId)]
     .find((value) => typeof value === "string" && value.trim().length > 0) || "";
 }
 
@@ -1880,6 +1778,7 @@ function toReadableLabelText(element) {
     getReferencedTextContent(element.getAttribute("aria-labelledby")),
     element.getAttribute("aria-label"),
     element.getAttribute("title"),
+    element.getAttribute("placeholder"),
     element.getAttribute("name"),
     element.dataset?.smlProperty,
     element.dataset?.ccProperty,
@@ -1971,7 +1870,7 @@ function buildChoiceGroupFixSuggestions(element) {
 }
 
 function collectGroupedChoiceFieldsetIssues() {
-  const groupedChoices = Array.from(document.querySelectorAll("input[type='radio'][name], input[type='checkbox'][name]"));
+  const groupedChoices = getAuditCandidateElements("input[type='radio'][name], input[type='checkbox'][name]");
   const rootIds = new WeakMap();
   const groups = new Map();
   let nextRootId = 1;
@@ -2124,9 +2023,9 @@ function describeHeadingForAudit(heading) {
 }
 
 function collectVisibleHeadingsForAudit() {
-  const nativeHeadings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+  const nativeHeadings = getAuditCandidateElements("h1, h2, h3, h4, h5, h6")
     .filter((heading) => isHeadingVisibleForAudit(heading));
-  const ariaHeadings = Array.from(document.querySelectorAll("[role='heading']"))
+  const ariaHeadings = getAuditCandidateElements("[role='heading']")
     .filter((heading) => isHeadingVisibleForAudit(heading));
 
   const headings = nativeHeadings.map((heading) => ({
@@ -2170,7 +2069,8 @@ function reportLevelOneHeadingIssues(compliance, headings) {
       .join("<br>");
     compliance.addAlert("warning", "Multiple Level 1 Headings",
       `Page should have only one level 1 heading for clarity.<br><strong>Detected level 1 headings:</strong><br>${listedLevel1s}`,
-      levelOneHeadings[0].element);
+      levelOneHeadings[0].element,
+      { messageHtml: true });
   }
 }
 
@@ -2191,7 +2091,8 @@ function reportHeadingLevelSkips(compliance, headings) {
   for (const heading of headings) {
     if (lastLevel !== null && heading.level > lastLevel + 1) {
       compliance.addAlert("warning", "Heading Level Skip",
-        buildHeadingLevelSkipMessage(lastLevel, heading), heading.element);
+        buildHeadingLevelSkipMessage(lastLevel, heading), heading.element,
+        { messageHtml: true });
     }
     lastLevel = heading.level;
   }
@@ -2340,7 +2241,7 @@ function getElementLandmarkHintText(element) {
 }
 
 function getCustomNavigationLandmarkCandidate() {
-  const candidates = Array.from(document.querySelectorAll("div, section, header, aside"));
+  const candidates = getAuditCandidateElements("div, section, header, aside");
   return candidates.find((element) => {
     if (!(element instanceof HTMLElement)) return false;
     if (isSmlcOwnedElement(element) || isHiddenFromAllUsers(element)) return false;
@@ -2355,7 +2256,7 @@ function getCustomNavigationLandmarkCandidate() {
 }
 
 function getCustomMainLandmarkCandidate() {
-  const candidates = Array.from(document.querySelectorAll("div, section, article"));
+  const candidates = getAuditCandidateElements("div, section, article");
   return candidates.find((element) => {
     if (!(element instanceof HTMLElement)) return false;
     if (isSmlcOwnedElement(element) || isHiddenFromAllUsers(element)) return false;
@@ -3036,9 +2937,12 @@ function getTableStructureSummary(table) {
     };
   }
 
-  const rows = Array.from(table.querySelectorAll("tr"));
+  const rows = Array.from(table.querySelectorAll("tr"))
+    .filter((row) => row.closest("table") === table && !isSmlcOwnedElement(row));
+  const getNativeRowCells = (row) => Array.from(row.querySelectorAll("th, td"))
+    .filter((cell) => cell.closest("table") === table && !isSmlcOwnedElement(cell));
   const maxColumns = rows.reduce((max, row) => {
-    return Math.max(max, row.querySelectorAll("th, td").length);
+    return Math.max(max, getNativeRowCells(row).length);
   }, 0);
 
   return {
@@ -3047,8 +2951,9 @@ function getTableStructureSummary(table) {
     hasCaption: Boolean(table.querySelector("caption")),
     hasThead: Boolean(table.querySelector("thead")),
     hasTbody: Boolean(table.querySelector("tbody")),
-    headerCells: Array.from(table.querySelectorAll("th")),
-    dataRows: rows.filter((row) => row.querySelectorAll("td").length > 0)
+    headerCells: Array.from(table.querySelectorAll("th"))
+      .filter((header) => header.closest("table") === table && !isSmlcOwnedElement(header)),
+    dataRows: rows.filter((row) => getNativeRowCells(row).some((cell) => cell instanceof HTMLTableCellElement && cell.tagName.toLowerCase() === "td"))
   };
 }
 
@@ -3087,6 +2992,24 @@ function getTableCellPreview(cell) {
   return normalized.length > 32 ? `${normalized.slice(0, 29)}...` : normalized;
 }
 
+function isTableEmptyStateCell(cell, table) {
+  if (!(cell instanceof HTMLTableCellElement) || !(table instanceof HTMLTableElement)) return false;
+  if (cell.tagName.toLowerCase() !== "td" || cell.closest("table") !== table || isSmlcOwnedElement(cell)) return false;
+
+  const row = cell.closest("tr");
+  if (!(row instanceof HTMLTableRowElement)) return false;
+
+  const rowCells = Array.from(row.querySelectorAll("th, td"))
+    .filter((rowCell) => rowCell.closest("table") === table && !isSmlcOwnedElement(rowCell));
+  if (rowCells.length !== 1) return false;
+
+  const headerColumnCount = Math.max(1, table.querySelectorAll("thead th").length);
+  const text = String(cell.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+  return getPositiveTableSpan(cell, "colspan") >= headerColumnCount
+    && /\b(no|none|nothing|empty)\b/.test(text);
+}
+
 function formatTableReasonList(reasons) {
   if (!Array.isArray(reasons) || reasons.length === 0) return "complex header structure";
   if (reasons.length === 1) return reasons[0];
@@ -3101,6 +3024,7 @@ function getComplexTableAnalysis(table, summary = getTableStructureSummary(table
 
   const reasons = [];
   const spanningCells = Array.from(table.querySelectorAll("th[colspan], th[rowspan], td[colspan], td[rowspan]"))
+    .filter((cell) => cell.closest("table") === table && !isSmlcOwnedElement(cell))
     .filter((cell) => getPositiveTableSpan(cell, "colspan") > 1 || getPositiveTableSpan(cell, "rowspan") > 1);
   if (spanningCells.length > 0) {
     reasons.push("spanning cells");
@@ -3119,7 +3043,8 @@ function getComplexTableAnalysis(table, summary = getTableStructureSummary(table
     reasons.push("group scopes");
   }
 
-  const dataCells = Array.from(table.querySelectorAll("td")).filter((cell) => cell.closest("table") === table);
+  const dataCells = Array.from(table.querySelectorAll("td"))
+    .filter((cell) => cell.closest("table") === table && !isSmlcOwnedElement(cell) && !isTableEmptyStateCell(cell, table));
   const mappedCells = [];
   const invalidHeaderReferenceCells = [];
 
@@ -4060,8 +3985,8 @@ function showComplianceFixModal(title, element) {
 }
 
 function getLevelOneHeadingElements() {
-  const nativeLevelOne = Array.from(document.querySelectorAll("h1"));
-  const ariaLevelOne = Array.from(document.querySelectorAll("[role='heading'][aria-level='1']"));
+  const nativeLevelOne = getAuditCandidateElements("h1");
+  const ariaLevelOne = getAuditCandidateElements("[role='heading'][aria-level='1']");
   return Array.from(new Set([...nativeLevelOne, ...ariaLevelOne]));
 }
 
@@ -4173,7 +4098,7 @@ function getPlainLanguageIssueDescription(title) {
     "Invalid aria-describedby Reference": "The aria-describedby points to something that is not on the page. Help text or error text may never be read out loud.",
     "Duplicate aria-describedby Reference": "The same description is listed more than once. Screen readers may repeat the same description text.",
     "Required Field Not Indicated": "This field must be filled in, but the page is not clearly telling the user that.",
-  "Search Input Missing Accessible Name": "This search input needs an accessible name so users know what they can search for. Use a <label>, aria-label, or aria-labelledby.",
+    "Search Input Missing Accessible Name": "This search input needs an accessible name so users know what they can search for. Use a <label>, aria-label, aria-labelledby, title, or placeholder.",
     "Search Landmark Missing": "This search input is not inside a container with role=\"search\". Assistive tools cannot expose it as a search landmark.",
     "Search Landmark Role on Input": "role=\"search\" belongs on the container around this search input, not on the input itself.",
     "Broken Fragment Link": "This link is supposed to jump to a spot on the same page, but that spot does not exist.",
@@ -4260,12 +4185,14 @@ function getIdReferenceTokens(value) {
     .filter(Boolean);
 }
 
-function markSmlcElementTree(element) {
+function markSmlcElementTree(element, ownedClassName = TZEDEK_SMLCA_OWNED_CLASS) {
   if (!(element instanceof Element)) return element;
 
   element.dataset.smlc = "1";
+  element.classList.add(ownedClassName);
   element.querySelectorAll("*").forEach((child) => {
     child.dataset.smlc = "1";
+    child.classList.add(ownedClassName);
   });
 
   applySmlcDefaultTabPolicy(element);
@@ -4370,11 +4297,37 @@ function setSmlcOwnedHtml(element, html) {
   return element;
 }
 
+function setSmlcOwnedText(element, text) {
+  if (!(element instanceof Element)) return element;
+
+  element.textContent = String(text || "");
+  markSmlcElementTree(element);
+  return element;
+}
+
+function setSmlcOwnedMessage(element, message, options = {}) {
+  return options.html === true
+    ? setSmlcOwnedHtml(element, message)
+    : setSmlcOwnedText(element, message);
+}
+
+function removeSmlcOwnedDescendants(element) {
+  if (!(element instanceof Element)) return element;
+
+  Array.from(element.querySelectorAll("*"))
+    .filter((node) => isSmlcOwnedElement(node))
+    .forEach((node) => node.remove());
+
+  return element;
+}
+
 function getVisibleControlText(element) {
   if (!(element instanceof Element)) return "";
 
   const clone = element.cloneNode(true);
   if (!(clone instanceof Element)) return "";
+
+  removeSmlcOwnedDescendants(clone);
 
   clone.querySelectorAll("[aria-hidden='true'], [hidden], .d-none, .hidden, script, style, title").forEach((node) => {
     node.remove();
@@ -4406,6 +4359,8 @@ function getVisibleControlTextExcludingScreenReaderOnly(element) {
   const clone = element.cloneNode(true);
   if (!(clone instanceof Element)) return "";
 
+  removeSmlcOwnedDescendants(clone);
+
   clone.querySelectorAll("[aria-hidden='true'], [hidden], .d-none, .hidden, script, style, title").forEach((node) => {
     node.remove();
   });
@@ -4421,7 +4376,7 @@ function getScreenReaderOnlyText(element) {
   if (!(element instanceof Element)) return "";
 
   return Array.from(element.querySelectorAll("*"))
-    .filter((node) => isScreenReaderOnlyElement(node) && !isHiddenFromAllUsers(node))
+    .filter((node) => !isSmlcOwnedElement(node) && isScreenReaderOnlyElement(node) && !isHiddenFromAllUsers(node))
     .map((node) => String(node.textContent || "").replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .join(" ")
@@ -4698,8 +4653,25 @@ function getDuplicateSrOnlyButtonLabelDetails(element) {
 }
 
 function isSmlcOwnedElement(element) {
-  return element instanceof Element
-    && Boolean(element.closest("[data-smlc='1']"));
+  if (!(element instanceof Element)) return false;
+
+  if (element.closest("[data-smlc='1']")) return true;
+  if (element.closest("#sml-compliance-results-panel, .sml-compliance-alert, .sml-compliance-alert-panes-floating, .sml-compliance-fix-modal, .sml-compliance-fix-modal-backdrop")) return true;
+
+  let current = element;
+  while (current instanceof Element) {
+    if (Array.from(current.classList || []).some((className) => className.startsWith(TZEDEK_SMLC_CLASS_PREFIX) || className.startsWith(TZEDEK_SMLCA_CLASS_PREFIX))) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+
+  return false;
+}
+
+function getAuditCandidateElements(selector, root = document) {
+  const queryRoot = root && typeof root.querySelectorAll === "function" ? root : document;
+  return Array.from(queryRoot.querySelectorAll(selector)).filter((element) => !isSmlcOwnedElement(element));
 }
 
 function resolveComplianceAuditUrl(rawHref) {
@@ -4880,7 +4852,7 @@ function isHiddenFromAllUsers(element) {
 
 function collectDuplicateIdCounts() {
   const counts = new Map();
-  const elementsWithIds = Array.from(document.querySelectorAll("[id]"));
+  const elementsWithIds = getAuditCandidateElements("[id]");
   for (const element of elementsWithIds) {
     if (!(element instanceof Element) || isSmlcOwnedElement(element)) continue;
     const id = String(element.id || "").trim();
@@ -4888,6 +4860,43 @@ function collectDuplicateIdCounts() {
     counts.set(id, (counts.get(id) || 0) + 1);
   }
   return counts;
+}
+
+function getDuplicateIdElements(elementId) {
+  const normalizedId = String(elementId || "").trim();
+  if (!normalizedId) return [];
+
+  return getAuditCandidateElements("[id]")
+    .filter((element) => element instanceof Element && !isSmlcOwnedElement(element) && element.id === normalizedId);
+}
+
+function describeDuplicateIdElement(element) {
+  if (!(element instanceof Element)) return "unknown element";
+
+  const tagName = element.tagName.toLowerCase();
+  const name = String(element.getAttribute("name") || "").trim();
+  const type = String(element.getAttribute("type") || "").trim();
+  const role = String(element.getAttribute("role") || "").trim();
+  const details = [
+    type ? `type="${type}"` : "",
+    name ? `name="${name}"` : "",
+    role ? `role="${role}"` : ""
+  ].filter(Boolean).join(" ");
+
+  return details ? `<${tagName} ${details}>` : `<${tagName}>`;
+}
+
+function getDuplicateIdEvidenceText(duplicateElements) {
+  if (!Array.isArray(duplicateElements)) return "";
+  if (duplicateElements.length <= 1) return "";
+
+  const shownElements = duplicateElements
+    .slice(0, 3)
+    .map((element, index) => `${index + 1}. ${describeDuplicateIdElement(element)}`)
+    .join("; ");
+  const extraCount = duplicateElements.length > 3 ? `; plus ${duplicateElements.length - 3} more` : "";
+
+  return ` Counted non-Tzedek elements: ${shownElements}${extraCount}.`;
 }
 
 function getMisspelledAriaAttributes(element) {
@@ -4909,7 +4918,7 @@ function getInvalidRoleTokens(roleValue) {
 }
 
 function getAriaAuditCandidateElements() {
-  return new Set(document.querySelectorAll("[id], [role], [aria-hidden], [aria-level], [aria-label], [aria-labelledby], [aria-describedby], [aria-role], [aria-labeledby], [arialabelledby], [labelledby], [ariadescribedby], [describedby], [arialabel]"));
+  return new Set(getAuditCandidateElements("[id], [role], [aria-hidden], [aria-level], [aria-label], [aria-labelledby], [aria-describedby], [aria-role], [aria-labeledby], [arialabelledby], [labelledby], [ariadescribedby], [describedby], [arialabel]"));
 }
 
 function buildInvalidRoleMessage(invalidRoleTokens) {
@@ -4926,10 +4935,14 @@ function reportDuplicateIdAlert(compliance, elem, duplicateIdCounts, reportedDup
   const duplicateIdCount = elementId ? (duplicateIdCounts.get(elementId) || 0) : 0;
   if (!elementId || duplicateIdCount <= 1 || reportedDuplicateIds.has(elementId)) return;
 
+  const duplicateIdElements = getDuplicateIdElements(elementId);
+  const confirmedDuplicateIdCount = Math.min(duplicateIdCount, duplicateIdElements.length);
+  if (confirmedDuplicateIdCount <= 1) return;
+
   reportedDuplicateIds.add(elementId);
 
   compliance.addAlert("error", "Duplicate ID",
-    `id="${elementId}" is used ${duplicateIdCount} times on the page. IDs must be unique.`, elem);
+    `id="${elementId}" is used ${confirmedDuplicateIdCount} times on the page. IDs must be unique.${getDuplicateIdEvidenceText(duplicateIdElements)}`, elem);
 }
 
 function reportMisspelledAriaAttributes(compliance, elem) {
@@ -5035,7 +5048,7 @@ function reportAriaHiddenFocusConflict(compliance, elem) {
   }
 }
 
-function getMoreInfoUrl(title, message) {
+function getCanonicalReferenceUrl(title, message) {
   const normalizedTitle = String(title || "").trim();
   const directUrl = MORE_INFO_URL_BY_TITLE[normalizedTitle];
   if (directUrl) return directUrl;
@@ -5043,8 +5056,31 @@ function getMoreInfoUrl(title, message) {
   const ariaReferenceUrl = getAriaReferenceUrl(title, message);
   if (ariaReferenceUrl) return ariaReferenceUrl;
 
-  const query = MORE_INFO_QUERY_BY_TITLE[normalizedTitle];
-  return query ? `${MDN_SEARCH_BASE}${encodeURIComponent(query)}` : "";
+  return "";
+}
+
+function getCanonicalReferenceLinks(title, message) {
+  const canonicalUrl = getCanonicalReferenceUrl(title, message);
+  return canonicalUrl ? [{ label: "More Info", url: canonicalUrl }] : [];
+}
+
+function getMoreInfoLinks(title, message) {
+  const guideUrl = getIssueGuideUrl(title, message);
+  const links = getCanonicalReferenceLinks(title, message);
+  const hasGuideLink = links.some((link) => link.url === guideUrl);
+
+  if (!hasGuideLink) {
+    links.push({
+      label: links.length > 0 ? "How to Fix" : "More Info",
+      url: guideUrl
+    });
+  }
+
+  return links;
+}
+
+function getMoreInfoUrl(title, message) {
+  return getMoreInfoLinks(title, message)[0]?.url || getIssueGuideUrl(title, message);
 }
 
 function getIssueGuideUrl(title = "", message = "") {
@@ -5084,7 +5120,7 @@ function ensureBootstrapIconsStyles() {
 function createAlertId() {
   const randomBytes = new Uint32Array(1);
   window.crypto.getRandomValues(randomBytes);
-  return `compliance-alert-${Date.now()}-${randomBytes[0].toString(36)}`;
+  return `tzedek-smlca-alert-${Date.now()}-${randomBytes[0].toString(36)}`;
 }
 
 function updateInlineAlertToggleCount(toggleButton, panesContainer) {
@@ -5266,7 +5302,7 @@ function ensureInlineAlertDismissHandlers() {
   INLINE_ALERT_DISMISS_HANDLERS_BOUND = true;
 }
 
-function createComplianceAlert(level, title, message, element) {
+function createComplianceAlert(level, title, message, element, options = {}) {
   ensureInlineAlertStyles();
   ensureInlineAlertDismissHandlers();
 
@@ -5448,31 +5484,34 @@ function createComplianceAlert(level, title, message, element) {
   
   const messageEl = document.createElement("p");
   messageEl.className = "mb-0 mt-2";
-  setSmlcOwnedHtml(messageEl, message);
+  setSmlcOwnedMessage(messageEl, message, { html: options.messageHtml === true });
   alertDiv.appendChild(messageEl);
   wireColorSourceHoverHandlers(alertDiv);
   wireButtonPreviewHandlers(alertDiv);
 
   const moreInfoUrl = getMoreInfoUrl(title, message);
-  if (moreInfoUrl) {
+  for (const linkInfo of getMoreInfoLinks(title, message)) {
     const moreInfoLink = document.createElement("a");
     moreInfoLink.className = "sml-compliance-more-info";
-    moreInfoLink.href = moreInfoUrl;
+    moreInfoLink.href = linkInfo.url || moreInfoUrl;
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
-    moreInfoLink.textContent = "More Info";
+    moreInfoLink.textContent = linkInfo.label || "More Info";
     makeSmlcControlUntabbable(moreInfoLink);
     alertDiv.appendChild(moreInfoLink);
   }
 
-  const issueGuideLink = document.createElement("a");
-  issueGuideLink.className = "sml-compliance-more-info";
-  issueGuideLink.href = getIssueGuideUrl(title, message);
-  issueGuideLink.target = "_blank";
-  issueGuideLink.rel = "noopener noreferrer";
-  issueGuideLink.textContent = "Tzedek Guide";
-  makeSmlcControlUntabbable(issueGuideLink);
-  alertDiv.appendChild(issueGuideLink);
+  const jumpButton = document.createElement("button");
+  jumpButton.type = "button";
+  jumpButton.className = "sml-compliance-more-info";
+  jumpButton.textContent = "Jump to location";
+  jumpButton.addEventListener("click", (event) => {
+    stopComplianceControlEvent(event);
+    setInlineAlertExpanded(toggleButton, panesContainer, false);
+    locateComplianceElement(element);
+  });
+  makeSmlcControlUntabbable(jumpButton);
+  alertDiv.appendChild(jumpButton);
 
   applyAlertSeverityToToggle(toggleButton, level);
   maybeAppendFixButton(alertDiv, level, title, element);
@@ -5509,7 +5548,7 @@ export class smlCompliance {
    */
   async runCompleteAudit() {
     this.clearAlerts();
-    this.pageLinks = Array.from(document.querySelectorAll("a[href]"));
+    this.pageLinks = getAuditCandidateElements("a[href]");
     
     const checks = [
       () => this.checkPageStructure(),
@@ -5665,7 +5704,7 @@ export class smlCompliance {
    * Check images for alt text
    */
   checkImages() {
-    const images = Array.from(document.querySelectorAll("img"));
+    const images = getAuditCandidateElements("img");
     
     for (const img of images) {
       const alt = img.getAttribute("alt");
@@ -5695,7 +5734,7 @@ export class smlCompliance {
   async checkLinks() {
     const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
       ? this.pageLinks
-      : Array.from(document.querySelectorAll("a[href]"));
+      : getAuditCandidateElements("a[href]");
     const linkTextGroups = new Map();
 
     if (this.cfg.checkBrokenLinks === true) {
@@ -5853,7 +5892,7 @@ export class smlCompliance {
    * Check buttons for accessibility
    */
   checkButtons() {
-    const buttons = Array.from(document.querySelectorAll("button, [role='button']"));
+    const buttons = getAuditCandidateElements("button, [role='button']");
     
     for (const btn of buttons) {
       if (btn instanceof HTMLAnchorElement && btn.hasAttribute("href")) {
@@ -5902,7 +5941,7 @@ export class smlCompliance {
    * Check forms for accessibility
    */
   checkForms() {
-    const forms = Array.from(document.querySelectorAll("form"));
+    const forms = getAuditCandidateElements("form");
     
     for (const form of forms) {
       if (!form.hasAttribute("aria-label") && !form.querySelector("h1, h2, h3")) {
@@ -5924,7 +5963,7 @@ export class smlCompliance {
    * Check input fields for accessibility
    */
   checkInputs() {
-    const inputs = Array.from(document.querySelectorAll("input, select, textarea"));
+    const inputs = getAuditCandidateElements("input, select, textarea");
     
     for (const input of inputs) {
       if (input.type === "hidden") continue;
@@ -5936,11 +5975,12 @@ export class smlCompliance {
       const ariaLabel = input.getAttribute("aria-label");
       const ariaLabelledby = input.getAttribute("aria-labelledby");
       const title = input.getAttribute("title");
+      const placeholder = input.getAttribute("placeholder");
       
       // Check for label association
-      if (!label && !ariaLabel && !ariaLabelledby && !title) {
+      if (!label && !ariaLabel && !ariaLabelledby && !title && !placeholder) {
         this.addAlert("critical", "Input Missing Label", 
-          `${input.tagName} must be labeled with <label for>, aria-label, or aria-labelledby`, input);
+          `${input.tagName} must be labeled with <label for>, aria-label, aria-labelledby, title, or placeholder`, input);
       }
 
       const accessibleNameOverride = getAccessibleNameOverrideDetails(input);
@@ -5987,6 +6027,8 @@ export class smlCompliance {
         const hasAccessibleName =
           input.hasAttribute("aria-label") ||
           input.hasAttribute("aria-labelledby") ||
+          input.hasAttribute("title") ||
+          input.hasAttribute("placeholder") ||
           (input.id && document.querySelector(`label[for="${input.id}"]`));
 
         if (!hasAccessibleName) {
@@ -6023,7 +6065,7 @@ export class smlCompliance {
   }
 
   checkComplexControlNames() {
-    const controls = Array.from(document.querySelectorAll("summary, [role='link'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='treeitem'], [role='gridcell']"));
+    const controls = getAuditCandidateElements("summary, [role='link'], [role='checkbox'], [role='radio'], [role='switch'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='treeitem'], [role='gridcell']");
 
     for (const control of controls) {
       if (!(control instanceof Element) || isSmlcOwnedElement(control) || isHiddenFromAllUsers(control)) continue;
@@ -6064,10 +6106,11 @@ export class smlCompliance {
   checkColorContrast() {
     ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
     const seenTargets = new Set();
-    const textElements = Array.from(document.querySelectorAll(CONTRAST_AUDIT_TEXT_SELECTOR)).map((element) => getContrastAuditTarget(element))
+    const textElements = getAuditCandidateElements(CONTRAST_AUDIT_TEXT_SELECTOR).map((element) => getContrastAuditTarget(element))
       .filter((element) => {
         if (!(element instanceof Element)) return false;
         if (seenTargets.has(element)) return false;
+        if (isSmlcOwnedElement(element)) return false;
 
         const isButtonTarget = element.matches("button, [role='button']");
         const hasReadableText = isButtonTarget
@@ -6191,6 +6234,7 @@ export class smlCompliance {
             `Contrast ${(legacyThemeSuggestion?.contrast ?? 0).toFixed(1)}:1`;
 
         this.addAlert(level, "Low Color Contrast", message, elem, {
+          messageHtml: true,
           contrastSwatches: [
             { label: "FG", hex: currentForeground },
             { label: "BG", hex: currentBackground }
@@ -6204,7 +6248,7 @@ export class smlCompliance {
    * Check focus indicators
    */
   checkFocusIndicators() {
-    const focusableElements = Array.from(document.querySelectorAll(FOCUSABLE_SELECTOR));
+    const focusableElements = getAuditCandidateElements(FOCUSABLE_SELECTOR);
     
     for (const elem of focusableElements.slice(0, 20)) { // Check first 20 for performance
       const focusStyle = window.getComputedStyle(elem, ":focus");
@@ -6345,7 +6389,7 @@ export class smlCompliance {
     const isCustomElementName = (element) => String(element.tagName || "").includes("-");
 
     // Check for visible onclick handlers that still rely on custom semantics.
-    const onClickElements = Array.from(document.querySelectorAll("[onclick]"));
+    const onClickElements = getAuditCandidateElements("[onclick]");
     for (const elem of onClickElements) {
       if (isSmlcOwnedElement(elem) || isHiddenFromAllUsers(elem)) {
         continue;
@@ -6377,8 +6421,7 @@ export class smlCompliance {
           guidance, elem);
     }
 
-    const roleButtons = Array.from(document.querySelectorAll("[role='button']"))
-      .filter((element) => !isSmlcOwnedElement(element))
+    const roleButtons = getAuditCandidateElements("[role='button']")
       .filter((element) => !isHiddenFromAllUsers(element))
       .filter((element) => element.tagName !== "BUTTON")
       .filter((element) => !(element.tagName === "INPUT" && ["button", "submit", "reset", "image"].includes(String(element.getAttribute("type") || "").toLowerCase())))
@@ -6417,7 +6460,7 @@ export class smlCompliance {
     }
 
     // Check for keyboard traps (elements that can receive focus but not exit via keyboard)
-    const focusableElements = Array.from(document.querySelectorAll(FOCUSABLE_SELECTOR));
+    const focusableElements = getAuditCandidateElements(FOCUSABLE_SELECTOR);
     
     // Note: Event listener detection (getEventListeners) is only available in Chrome DevTools console,
     // not in standard browser APIs, so we focus on structural checks instead
@@ -6427,10 +6470,10 @@ export class smlCompliance {
    * Check media for accessibility
    */
   checkMedia() {
-    const audio = Array.from(document.querySelectorAll("audio"));
-    const iframes = Array.from(document.querySelectorAll("iframe"));
-    const embeddedContent = Array.from(document.querySelectorAll("object, embed"));
-    const video = Array.from(document.querySelectorAll("video"));
+    const audio = getAuditCandidateElements("audio");
+    const iframes = getAuditCandidateElements("iframe");
+    const embeddedContent = getAuditCandidateElements("object, embed");
+    const video = getAuditCandidateElements("video");
 
     for (const media of audio) {
       const hasTranscript = media.querySelector("track[kind='captions']") || 
@@ -6483,7 +6526,7 @@ export class smlCompliance {
    * Check tables for accessibility
    */
   checkTables() {
-    const tables = Array.from(document.querySelectorAll("table"));
+    const tables = getAuditCandidateElements("table");
 
     for (const table of tables) {
       if (!(table instanceof HTMLTableElement) || isSmlcOwnedElement(table)) continue;
@@ -6503,7 +6546,7 @@ export class smlCompliance {
    * Check lists for proper structure
    */
   checkLists() {
-    const lists = Array.from(document.querySelectorAll("ul, ol"));
+    const lists = getAuditCandidateElements("ul, ol");
 
     for (const list of lists) {
       const items = list.querySelectorAll(":scope > li");
@@ -6530,7 +6573,7 @@ export class smlCompliance {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Check for animations and transitions
-    const animatedElements = Array.from(document.querySelectorAll("[style*='animation'], [style*='transition']"));
+    const animatedElements = getAuditCandidateElements("[style*='animation'], [style*='transition']");
     
     if (animatedElements.length > 0 && prefersReducedMotion) {
       // Check if prefers-reduced-motion is respected
@@ -6570,7 +6613,7 @@ export class smlCompliance {
   checkSkipLinks() {
     const links = Array.isArray(this.pageLinks) && this.pageLinks.length > 0
       ? this.pageLinks
-      : Array.from(document.querySelectorAll("a[href]"));
+      : getAuditCandidateElements("a[href]");
     const mainContent = getDeclaredMainContentRegion();
     const hasSkipLink = hasValidSkipToMainLink(links, mainContent);
 
@@ -6590,7 +6633,7 @@ export class smlCompliance {
    * Check form validation and error handling
    */
   checkFormValidation() {
-    const forms = Array.from(document.querySelectorAll("form"));
+    const forms = getAuditCandidateElements("form");
 
     for (const form of forms) {
       const inputs = form.querySelectorAll("input[required], select[required], textarea[required]");
@@ -6612,7 +6655,7 @@ export class smlCompliance {
    * Check for live regions
    */
   checkLiveRegions() {
-    const liveRegions = Array.from(document.querySelectorAll("[aria-live]"));
+    const liveRegions = getAuditCandidateElements("[aria-live]");
 
     for (const region of liveRegions) {
       if (region.closest(".sml-compliance-alert, #sml-compliance-results-panel")) {
@@ -6670,8 +6713,7 @@ export class smlCompliance {
     }
 
     // Check for proper use of semantic elements
-    const nonSemanticButtons = Array.from(document.querySelectorAll("[role='button']"))
-      .filter((element) => !isSmlcOwnedElement(element))
+    const nonSemanticButtons = getAuditCandidateElements("[role='button']")
       .filter((element) => !isHiddenFromAllUsers(element))
       .filter((element) => element.tagName !== "BUTTON" && !(element.tagName === "INPUT" && ["button", "submit", "reset", "image"].includes(String(element.getAttribute("type") || "").toLowerCase())));
     const anchorButtons = nonSemanticButtons.filter((element) => element.tagName === "A" && element.hasAttribute("href"));
@@ -6687,8 +6729,7 @@ export class smlCompliance {
         `Found ${anchorButtons.length} link elements using role="button". Use a real link for navigation or a real <button> for page actions`, anchorButtons[0]);
     }
 
-    const divLinks = Array.from(document.querySelectorAll("div[role='link']"))
-      .filter((element) => !isSmlcOwnedElement(element))
+    const divLinks = getAuditCandidateElements("div[role='link']")
       .filter((element) => !isHiddenFromAllUsers(element));
     if (divLinks.length > 0) {
       this.addAlert("info", "Non-Semantic Link", 
@@ -6721,13 +6762,14 @@ export class smlCompliance {
       level: normalizedLevel,
       title: normalizedTitle,
       message: normalizedMessage,
+      messageHtml: extra.messageHtml === true,
       element,
       plainDescription: getPlainLanguageIssueDescription(normalizedTitle),
       ...extra
     });
 
     if (this.cfg.showAlerts && element) {
-      createComplianceAlert(normalizedLevel, normalizedTitle, normalizedMessage, element);
+      createComplianceAlert(normalizedLevel, normalizedTitle, normalizedMessage, element, { messageHtml: extra.messageHtml === true });
     }
   }
 
@@ -6809,7 +6851,7 @@ export async function runComplianceAudit(cfg = {}) {
   return await compliance.runCompleteAudit();
 }
 
-export { getComplianceFixContent, getMoreInfoUrl, getPlainLanguageIssueDescription };
+export { getCanonicalReferenceLinks, getComplianceFixContent, getMoreInfoLinks, getMoreInfoUrl, getPlainLanguageIssueDescription };
 
 /**
  * Global helper for development
