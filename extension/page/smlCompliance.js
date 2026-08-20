@@ -4877,13 +4877,15 @@ function describeDuplicateIdElement(element) {
   const name = String(element.getAttribute("name") || "").trim();
   const type = String(element.getAttribute("type") || "").trim();
   const role = String(element.getAttribute("role") || "").trim();
+  const visibility = isHiddenFromAllUsers(element) ? "hidden" : "visible";
   const details = [
     type ? `type="${type}"` : "",
     name ? `name="${name}"` : "",
     role ? `role="${role}"` : ""
   ].filter(Boolean).join(" ");
+  const detailText = details ? ` ${details}` : "";
 
-  return details ? `<${tagName} ${details}>` : `<${tagName}>`;
+  return `${tagName}${detailText} (${visibility})`;
 }
 
 function getDuplicateIdEvidenceText(duplicateElements) {
@@ -4942,7 +4944,7 @@ function reportDuplicateIdAlert(compliance, elem, duplicateIdCounts, reportedDup
   reportedDuplicateIds.add(elementId);
 
   compliance.addAlert("error", "Duplicate ID",
-    `id="${elementId}" is used ${confirmedDuplicateIdCount} times on the page. IDs must be unique.${getDuplicateIdEvidenceText(duplicateIdElements)}`, elem);
+    `The ID value "${elementId}" is used ${confirmedDuplicateIdCount} times on the page. IDs must be unique.${getDuplicateIdEvidenceText(duplicateIdElements)}`, elem);
 }
 
 function reportMisspelledAriaAttributes(compliance, elem) {

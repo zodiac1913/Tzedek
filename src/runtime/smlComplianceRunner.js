@@ -365,7 +365,9 @@
   }
 
   function waitForNextPaint() {
-    return new Promise(resolve => window.requestAnimationFrame(resolve));
+    return new Promise(resolve => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+    });
   }
 
   async function executeAuditAndRender() {
@@ -379,7 +381,10 @@
     refreshInFlight = true;
     try {
       // Clean up all existing inline alerts and highlights before re-running
-      document.getElementById(PANEL_ID)?.remove();
+      const existingPanel = document.getElementById(PANEL_ID);
+      if (existingPanel?.getAttribute("aria-busy") !== "true") {
+        existingPanel?.remove();
+      }
       document.querySelectorAll(".sml-compliance-alert").forEach(el => el.remove());
       document.querySelectorAll(".sml-compliance-alert-panes-floating").forEach(el => el.remove());
       document.querySelectorAll(".smlc-unblocked-alert-button").forEach(el => el.remove());
@@ -389,7 +394,7 @@
       });
 
       setTzedekLoadingState(true);
-  await waitForNextPaint();
+    await waitForNextPaint();
       const report = await currentCompliance.runCompleteAudit();
       window[REPORT_FLAG] = report;
       if (currentOptions?.showIssuePanel) {
@@ -688,7 +693,8 @@
       "#" + PANEL_ID + " .smlc-refresh-btn:disabled{opacity:0.65;cursor:progress;}",
       "#" + PANEL_ID + " .smlc-loading-progress{margin:0.65rem -1rem -0.75rem;overflow:hidden;border-radius:0 0 8px 8px;}",
       "#" + PANEL_ID + " .smlc-loading-progress .progress{height:2rem;border-radius:0;background:#cbd5e1;}",
-      "#" + PANEL_ID + " .smlc-loading-progress .progress-bar{font-weight:700;letter-spacing:0;}",
+      "#" + PANEL_ID + " .smlc-loading-progress .progress-bar{width:100%;display:flex;align-items:center;justify-content:center;color:#fff;background-color:#2563eb;background-image:linear-gradient(45deg,rgba(255,255,255,0.2) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.2) 50%,rgba(255,255,255,0.2) 75%,transparent 75%,transparent);background-size:1rem 1rem;animation:smlc-progress-stripes 1s linear infinite;font-weight:700;letter-spacing:0;}",
+      "@keyframes smlc-progress-stripes{from{background-position:1rem 0;}to{background-position:0 0;}}",
       "#" + PANEL_ID + " .smlc-body{margin-top:0.55rem;max-height:min(70vh,44rem);overflow-y:auto;overflow-x:hidden;}",
       "#" + PANEL_ID + " .smlc-controls{display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;margin:0.65rem 0;}",
       "#" + PANEL_ID + " .smlc-summary{display:flex;flex-wrap:wrap;gap:0.4rem;}",
@@ -1206,6 +1212,8 @@
 
   (async function run() {
     try {
+      setTzedekLoadingState(true, "Tzedek Is Loading...Please Wait");
+      await waitForNextPaint();
       const requestedProfile = getRequestedProfile();
       const ComplianceClass = await loadComplianceClass(requestedProfile);
       currentOptions = parseOptions();
