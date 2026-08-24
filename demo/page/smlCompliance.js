@@ -4944,7 +4944,7 @@ function reportDuplicateIdAlert(compliance, elem, duplicateIdCounts, reportedDup
   reportedDuplicateIds.add(elementId);
 
   compliance.addAlert("error", "Duplicate ID",
-    `The ID value "${elementId}" is used ${confirmedDuplicateIdCount} times on the page. IDs must be unique.${getDuplicateIdEvidenceText(duplicateIdElements)}`, elem);
+    `id is "${elementId}" and is used ${confirmedDuplicateIdCount} times on the page. IDs must be unique.${getDuplicateIdEvidenceText(duplicateIdElements)}`, elem);
 }
 
 function reportMisspelledAriaAttributes(compliance, elem) {
