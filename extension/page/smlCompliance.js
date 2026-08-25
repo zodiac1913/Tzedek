@@ -129,7 +129,7 @@ const ALERT_LEVEL_PRIORITY = {
   success: 0
 };
 const BOOTSTRAP_ICONS_LINK_ID = "sml-compliance-bootstrap-icons";
-const DEFAULT_BOOTSTRAP_ICONS_HREF = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css";
+const DEFAULT_BOOTSTRAP_ICONS_HREF = "";
 const DEFAULT_SMOKE_IMAGE_URL = new URL("./assets/smoke.png", import.meta.url).href;
 const BROKEN_LINK_STATUS_CACHE = new Map();
 const MDN_ARIA_REFERENCE_BASE = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/";
@@ -1613,9 +1613,8 @@ function findClosestButtonStyles(textRgb, backgroundRgb, required, buttonPalette
     });
   }
 
-  return matches
-    .sort((a, b) => a.score - b.score)
-    .slice(0, Math.max(1, limit));
+  matches.sort((a, b) => a.score - b.score);
+  return matches.slice(0, Math.max(1, limit));
 }
 
 function findBestPaletteReplacement(textRgb, backgroundRgb, required, paletteEntries) {
@@ -1735,11 +1734,20 @@ function getReferencedTextContent(idrefs) {
     .filter(Boolean)
     .map((id) => document.getElementById(id))
     .filter((element) => element instanceof Element && !isSmlcOwnedElement(element))
-    .map((element) => String(element.textContent || "").trim())
+    .map((element) => getReferencedElementAccessibleText(element))
     .filter((text) => text.length > 0)
     .join(" ")
     .trim();
 
+}
+
+function getReferencedElementAccessibleText(element) {
+  if (!(element instanceof Element)) return "";
+
+  const ariaLabel = String(element.getAttribute("aria-label") || "").trim();
+  if (ariaLabel) return ariaLabel;
+
+  return getVisibleControlText(element);
 }
 
 function getReferencedElements(idrefs) {
@@ -1755,19 +1763,24 @@ function getAssociatedLabelText(element) {
   if (!(element instanceof Element)) return "";
 
   const getTrimmedText = (node) => String(node?.textContent || "").trim();
+  const getVisibleLabelText = (node) => {
+    if (!(node instanceof Element)) return "";
+    const visibleText = getVisibleControlTextExcludingScreenReaderOnly(node);
+    return visibleText || getTrimmedText(node);
+  };
 
   const associatedLabelText = ("labels" in element && element.labels)
     ? Array.from(element.labels)
-      .map((label) => getTrimmedText(label))
+      .map((label) => getVisibleLabelText(label))
       .filter(Boolean)
       .join(" ")
       .trim()
     : "";
 
-  const wrappedLabelText = getTrimmedText(element.closest("label"));
+  const wrappedLabelText = getVisibleLabelText(element.closest("label"));
   const byId = element.id ? document.querySelector(`label[for='${CSS.escape(element.id)}']`) : null;
 
-  return [associatedLabelText, wrappedLabelText, getTrimmedText(byId)]
+  return [associatedLabelText, wrappedLabelText, getVisibleLabelText(byId)]
     .find((value) => typeof value === "string" && value.trim().length > 0) || "";
 }
 
@@ -2714,11 +2727,11 @@ function buildSemanticControlFixSuggestions(title, element) {
     return [
       {
         heading: "Prefer a native button",
-        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n</script>`
       },
       {
         heading: "If you keep role=button, add keyboard activation",
-        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n<\/script>`
+        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n</script>`
       },
       {
         heading: "Verify runtime key handlers (including delegated listeners)",
@@ -2731,11 +2744,11 @@ function buildSemanticControlFixSuggestions(title, element) {
     return [
       {
         heading: "Prefer a native button",
-        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n</script>`
       },
       {
         heading: "If you keep role=button, make it keyboard reachable",
-        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n<\/script>`
+        code: `<div role="button" tabindex="0" id="openDetailsControl">Open details</div>\n<script>\n  const control = document.getElementById('openDetailsControl');\n  control?.addEventListener('click', openDetails);\n  control?.addEventListener('keydown', (event) => {\n    if (event.key === 'Enter' || event.key === ' ') {\n      event.preventDefault();\n      openDetails();\n    }\n  });\n</script>`
       },
       {
         heading: "Confirm focusability and delegated handling at runtime",
@@ -2748,7 +2761,7 @@ function buildSemanticControlFixSuggestions(title, element) {
     return [
       {
         heading: "Use a real button for page actions",
-        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n</script>`
       },
       {
         heading: "Use a real link for navigation",
@@ -2765,7 +2778,7 @@ function buildSemanticControlFixSuggestions(title, element) {
       },
       {
         heading: "Use a real button when the control triggers page behavior",
-        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n<\/script>`
+        code: `<button type="button" id="openDetailsBtn">Open details</button>\n<script>\n  document.getElementById('openDetailsBtn')?.addEventListener('click', openDetails);\n</script>`
       }
     ];
   }
@@ -5110,11 +5123,13 @@ function ensureBootstrapIconsStyles() {
   const configuredHref = runtimeConfig && typeof runtimeConfig === "object"
     ? runtimeConfig.bootstrapIconsHref
     : "";
+  const iconHref = configuredHref || DEFAULT_BOOTSTRAP_ICONS_HREF;
+  if (!iconHref) return;
 
   const link = document.createElement("link");
   link.id = BOOTSTRAP_ICONS_LINK_ID;
   link.rel = "stylesheet";
-  link.href = configuredHref || DEFAULT_BOOTSTRAP_ICONS_HREF;
+  link.href = iconHref;
   markSmlcElementTree(link);
   document.head.appendChild(link);
 }
@@ -5580,7 +5595,7 @@ export class smlCompliance {
     ];
 
     for (const check of checks) {
-      await check();
+      await Promise.resolve(check());
     }
 
     // Final safety normalization: never keep hard missing-keyboard warnings
@@ -5594,9 +5609,9 @@ export class smlCompliance {
         && String(element.getAttribute("role") || "").trim().toLowerCase() === "button";
 
       const hasKeyboardEvidence =
-        String(element.getAttribute("data-tzedek-cdp-keyboard-evidence") || "").toLowerCase() === "true"
-        || String(element.getAttribute("data-wcag-key-down") || "").trim() === "1"
-        || String(element.getAttribute("data-wcag-keyboard") || "").toLowerCase() === "true";
+        String(element.dataset.tzedekRuntimeKeyboardEvidence || "").toLowerCase() === "true"
+        || String(element.dataset.wcagKeyDown || "").trim() === "1"
+        || String(element.dataset.wcagKeyboard || "").toLowerCase() === "true";
 
       const hasNearbyKeyboardTagEvidence = (() => {
         let cursor = element;
@@ -6133,7 +6148,7 @@ export class smlCompliance {
     for (const elem of textElements.slice(0, 50)) { // Check first 50 elements for performance
       const textColor = window.getComputedStyle(elem).color;
       const bgRGB = getEffectiveBackgroundColor(elem);
-      const fontSize = parseFloat(window.getComputedStyle(elem).fontSize);
+      const fontSize = Number.parseFloat(window.getComputedStyle(elem).fontSize);
       const fontWeight = window.getComputedStyle(elem).fontWeight;
       
       const textRGB = parseRGB(textColor);
@@ -6198,8 +6213,9 @@ export class smlCompliance {
           ? `${suggestions.balanced.note}<br>`
           : "";
         const worstStateLabel = lowestContrastSnapshot?.name || "default";
+        const contrastStateText = contrastSnapshots.map((snapshot) => `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1`).join(" | ");
         const stateSummary = contrastSnapshots.length > 1
-          ? `<br>State checks: ${contrastSnapshots.map((snapshot) => `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1`).join(" | ")}`
+          ? `<br>State checks: ${contrastStateText}`
           : "";
         const baseIntro =
           `Your Foreground ${formatContrastHex(currentForeground)} and Background ${formatContrastHex(currentBackground)} ` +
@@ -6253,7 +6269,6 @@ export class smlCompliance {
     const focusableElements = getAuditCandidateElements(FOCUSABLE_SELECTOR);
     
     for (const elem of focusableElements.slice(0, 20)) { // Check first 20 for performance
-      const focusStyle = window.getComputedStyle(elem, ":focus");
       const outline = window.getComputedStyle(elem).outline;
       const boxShadow = window.getComputedStyle(elem).boxShadow;
       
@@ -6292,11 +6307,7 @@ export class smlCompliance {
 
       const rootNode = element?.getRootNode?.();
       const host = rootNode instanceof ShadowRoot ? rootNode.host : null;
-      if (host && hasWcagKeyboardTagHintOnNode(host)) {
-        return true;
-      }
-
-      return false;
+      return Boolean(host && hasWcagKeyboardTagHintOnNode(host));
     };
 
     const hasDeclarativeKeyboardBindingHint = (element) => {
@@ -6314,9 +6325,9 @@ export class smlCompliance {
       const tagName = String(element?.tagName || "").toLowerCase();
       if (tagName !== "sml-reactive-button") return false;
 
-      const keyWired = String(element.getAttribute("data-key-wired") || "").toLowerCase() === "true";
-      const wcagKeyDown = String(element.getAttribute("data-wcag-key-down") || "").trim() === "1";
-      const wcagKeyboard = String(element.getAttribute("data-wcag-keyboard") || "").toLowerCase() === "true";
+      const keyWired = String(element.dataset.keyWired || "").toLowerCase() === "true";
+      const wcagKeyDown = String(element.dataset.wcagKeyDown || "").trim() === "1";
+      const wcagKeyboard = String(element.dataset.wcagKeyboard || "").toLowerCase() === "true";
       const ariaShortcuts = String(element.getAttribute("aria-keyshortcuts") || "").toLowerCase();
       const advertisesEnterAndSpace = ariaShortcuts.includes("enter") && ariaShortcuts.includes("space");
       return keyWired || wcagKeyDown || wcagKeyboard || advertisesEnterAndSpace;
@@ -6349,8 +6360,8 @@ export class smlCompliance {
       return false;
     };
 
-    const hasDebuggerKeyboardEvidence = (element) => {
-      return String(element.getAttribute("data-tzedek-cdp-keyboard-evidence") || "").toLowerCase() === "true";
+    const hasRuntimeKeyboardEvidence = (element) => {
+      return String(element.dataset.tzedekRuntimeKeyboardEvidence || "").toLowerCase() === "true";
     };
 
     const hasAuthorWcagKeyboardTagHint = (element) => {
@@ -6377,7 +6388,7 @@ export class smlCompliance {
     };
 
     const hasKeyboardHandlerEvidence = (element) => (
-      hasDebuggerKeyboardEvidence(element)
+      hasRuntimeKeyboardEvidence(element)
       ||
       hasAuthorWcagKeyboardTagHint(element)
       ||
@@ -6461,9 +6472,6 @@ export class smlCompliance {
       }
     }
 
-    // Check for keyboard traps (elements that can receive focus but not exit via keyboard)
-    const focusableElements = getAuditCandidateElements(FOCUSABLE_SELECTOR);
-    
     // Note: Event listener detection (getEventListeners) is only available in Chrome DevTools console,
     // not in standard browser APIs, so we focus on structural checks instead
   }
@@ -6571,7 +6579,6 @@ export class smlCompliance {
    * Check for motion sensitivity
    */
   checkMotionSensitivity() {
-    const styles = window.getComputedStyle(document.documentElement);
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Check for animations and transitions
@@ -6601,7 +6608,7 @@ export class smlCompliance {
 
     // html already defines the primary language. Warn only if body repeats same lang.
     const bodyLang = (document.body?.getAttribute("lang") || "").trim();
-    if (bodyLang && bodyLang.toLowerCase() === documentLang.toLowerCase()) {
+    if (bodyLang?.toLowerCase() === documentLang.toLowerCase()) {
       this.addAlert("info", "Redundant Lang Attribute", 
         `<body lang="${bodyLang}"> repeats document language from <html lang>`, document.body);
     }

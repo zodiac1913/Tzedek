@@ -24,6 +24,8 @@
   let currentGetMoreInfoUrl = null;
   let currentGetMoreInfoLinks = null;
   let refreshInFlight = false;
+  let reservedPageSpace = null;
+  let currentIssue = null;
 
   function getRuntimeConfig() {
     const config = globalThis.TzedekConfig;
@@ -370,6 +372,110 @@
     });
   }
 
+  function getPanelReservedHeight() {
+    const panel = document.getElementById(PANEL_ID);
+    if (!(panel instanceof HTMLElement) || !panel.isConnected) return 0;
+
+    const rect = panel.getBoundingClientRect();
+    return Math.max(0, Math.ceil(rect.height + 12));
+  }
+
+  function reservePageSpaceForPanel() {
+    const body = document.body;
+    if (!(body instanceof HTMLElement)) return;
+
+    if (!reservedPageSpace) {
+      reservedPageSpace = {
+        bodyPaddingTop: body.style.paddingTop,
+        documentScrollPaddingTop: document.documentElement.style.scrollPaddingTop
+      };
+    }
+
+    window.requestAnimationFrame(() => {
+      const reservedHeight = getPanelReservedHeight();
+      if (!reservedPageSpace || reservedHeight <= 0) return;
+      body.style.paddingTop = `calc(${reservedPageSpace.bodyPaddingTop || "0px"} + ${reservedHeight}px)`;
+      document.documentElement.style.scrollPaddingTop = `${reservedHeight}px`;
+      document.documentElement.style.setProperty("--smlc-current-panel-offset", `${reservedHeight}px`);
+    });
+  }
+
+  function restorePageSpaceForPanel() {
+    if (!reservedPageSpace) return;
+
+    if (document.body instanceof HTMLElement) {
+      document.body.style.paddingTop = reservedPageSpace.bodyPaddingTop;
+    }
+    document.documentElement.style.scrollPaddingTop = reservedPageSpace.documentScrollPaddingTop;
+    document.documentElement.style.removeProperty("--smlc-current-panel-offset");
+    reservedPageSpace = null;
+  }
+
+  function hideIssueList(panel) {
+    if (!(panel instanceof Element)) return;
+
+    const body = panel.querySelector("#" + TZEDEK_SMLC_ISSUES_BODY_ID);
+    const toggleButton = panel.querySelector("button[data-smlc-toggle]");
+    if (body instanceof HTMLElement) {
+      body.hidden = true;
+    }
+    if (toggleButton instanceof HTMLButtonElement) {
+      toggleButton.setAttribute("aria-expanded", "false");
+    }
+    reservePageSpaceForPanel();
+  }
+
+  function setCurrentIssue(issue, panel) {
+    currentIssue = issue || null;
+    const currentButton = panel?.querySelector?.("button[data-smlc-current-issue]");
+    if (!(currentButton instanceof HTMLButtonElement)) return;
+
+    currentButton.disabled = !currentIssue;
+    currentButton.setAttribute("aria-disabled", currentIssue ? "false" : "true");
+    currentButton.setAttribute("title", currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this");
+  }
+
+  function closeCurrentIssueModal() {
+    document.querySelectorAll(".smlc-current-issue-backdrop").forEach((modal) => modal.remove());
+  }
+
+  function showCurrentIssueModal(issue) {
+    if (!issue) return;
+
+    closeCurrentIssueModal();
+    const referenceLinks = (Array.isArray(issue.referenceLinks) ? issue.referenceLinks : [])
+      .filter((link) => link.url)
+      .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+      .join("");
+    const modal = document.createElement("div");
+    modal.className = "smlc-current-issue-backdrop";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Current Tzedek issue");
+    modal.insertAdjacentHTML("beforeend", [
+      "<div class='smlc-current-issue-modal'>",
+      "<div class='smlc-current-issue-head'>",
+      "<strong>Current Issue</strong>",
+      "<button type='button' class='smlc-close-btn' data-smlc-close-current='1' aria-label='Close current issue'>Close</button>",
+      "</div>",
+      "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
+      issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
+      renderContrastSwatches(issue.contrastSwatches),
+      "<p class='smlc-current-issue-message'>" + escapeHtml(issue.message) + "</p>",
+      issue.targetId ? "<div class='smlc-target-id'><strong>Element ID:</strong> <code>" + escapeHtml(issue.targetId) + "</code></div>" : "",
+      "<div class='smlc-meta'><strong>Why this matters:</strong> " + escapeHtml(issue.why) + "</div>",
+      referenceLinks ? "<div class='smlc-issue-actions'>" + referenceLinks + "</div>" : "",
+      "</div>"
+    ].join(""));
+    markSmlcElementTree(modal);
+    document.body.appendChild(modal);
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal || event.target.closest("button[data-smlc-close-current]")) {
+        closeCurrentIssueModal();
+      }
+    });
+  }
+
   async function executeAuditAndRender() {
     if (!currentCompliance || typeof currentCompliance.runCompleteAudit !== "function") {
       throw new Error("SMLC compliance instance is unavailable");
@@ -385,6 +491,9 @@
       if (existingPanel?.getAttribute("aria-busy") !== "true") {
         existingPanel?.remove();
       }
+      restorePageSpaceForPanel();
+      closeCurrentIssueModal();
+      currentIssue = null;
       document.querySelectorAll(".sml-compliance-alert").forEach(el => el.remove());
       document.querySelectorAll(".sml-compliance-alert-panes-floating").forEach(el => el.remove());
       document.querySelectorAll(".smlc-unblocked-alert-button").forEach(el => el.remove());
@@ -633,6 +742,10 @@
       panel.remove();
     }
 
+    restorePageSpaceForPanel();
+    closeCurrentIssueModal();
+    currentIssue = null;
+
     const panelStyle = document.getElementById(PANEL_STYLE_ID);
     if (panelStyle) {
       panelStyle.remove();
@@ -687,9 +800,11 @@
       "#" + PANEL_ID + " .smlc-alert-close-btn{background:none;border:none;color:#78350f;cursor:pointer;font-size:1.2rem;line-height:1;padding:0;min-width:auto;flex-shrink:0;}",
       "#" + PANEL_ID + " .smlc-update-notice .smlc-alert-close-btn:hover{color:#b45309;}",
       "#" + PANEL_ID + " .smlc-alert-close-btn:focus-visible{outline:2px solid #b45309;outline-offset:2px;border-radius:3px;}",
-      "#" + PANEL_ID + " .smlc-toggle-btn,#" + PANEL_ID + " .smlc-refresh-btn{border:1px solid #334155;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.875rem;font-weight:700;cursor:pointer;min-height:31px;}",
+      "#" + PANEL_ID + " .smlc-toggle-btn,#" + PANEL_ID + " .smlc-refresh-btn,#" + PANEL_ID + " .smlc-current-issue-btn{border:1px solid #334155;border-radius:6px;padding:0.25rem 0.5rem;font-size:0.875rem;font-weight:700;cursor:pointer;min-height:31px;}",
       "#" + PANEL_ID + " .smlc-toggle-btn{background:#fff !important;color:#0f172a !important;}",
       "#" + PANEL_ID + " .smlc-refresh-btn{display:inline-flex;align-items:center;justify-content:center;min-width:31px;background:#bae6fd !important;color:#082f49 !important;line-height:1;font-size:1.75rem;box-shadow:0 0.35rem 0.9rem rgba(125,211,252,0.45);}",
+      "#" + PANEL_ID + " .smlc-current-issue-btn{background:#fef3c7 !important;color:#78350f !important;border-color:#b45309 !important;}",
+      "#" + PANEL_ID + " .smlc-current-issue-btn:disabled{opacity:0.55;cursor:not-allowed;}",
       "#" + PANEL_ID + " .smlc-refresh-btn:disabled{opacity:0.65;cursor:progress;}",
       "#" + PANEL_ID + " .smlc-loading-progress{margin:0.65rem -1rem -0.75rem;overflow:hidden;border-radius:0 0 8px 8px;}",
       "#" + PANEL_ID + " .smlc-loading-progress .progress{height:2rem;border-radius:0;background:#cbd5e1;}",
@@ -726,7 +841,11 @@
       "@media (max-width: 820px){#" + PANEL_ID + " .smlc-headline{grid-template-columns:1fr;row-gap:0.5rem;}#" + PANEL_ID + " .smlc-headline-main{justify-content:center !important;}#" + PANEL_ID + " .smlc-headline-center{order:-1;}#" + PANEL_ID + " .smlc-actions{justify-content:center !important;justify-self:center;}}",
       "#" + PANEL_ID + " .smlc-close-btn{border:1px solid #334155;background:#fff !important;color:#0f172a !important;border-radius:6px;padding:0.15rem 0.45rem;font-size:0.8rem;cursor:pointer;}",
       "#" + PANEL_ID + " .btn.btn-dark{color:#ffffff !important;background:#1f2937 !important;border-color:#111827 !important;}",
-      ".smlc-unblocked-alert-button{box-shadow:0 0 0.5rem rgba(220,38,38,0.5) !important;border-color:#dc2626 !important;}"
+      ".smlc-unblocked-alert-button{box-shadow:0 0 0.5rem rgba(220,38,38,0.5) !important;border-color:#dc2626 !important;}",
+      ".smlc-current-issue-backdrop{position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,0.38);display:flex;align-items:flex-start;justify-content:center;padding:calc(var(--smlc-current-panel-offset, 4.5rem) + 1rem) 1rem 1rem;}",
+      ".smlc-current-issue-modal{width:min(34rem,calc(100vw - 2rem));max-height:min(70vh,34rem);overflow:auto;background:#ffffff;color:#0f172a;border:2px solid #0f172a;border-radius:8px;box-shadow:0 1rem 2rem rgba(15,23,42,0.32);padding:0.85rem 1rem;font-family:Arial,Helvetica,sans-serif;}",
+      ".smlc-current-issue-head{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.65rem;}",
+      ".smlc-current-issue-message{margin:0.45rem 0;font-size:0.88rem;line-height:1.45;}"
     ].join("");
     markSmlcElementTree(style);
     document.head.appendChild(style);
@@ -763,6 +882,7 @@
     ].join(""));
     markSmlcElementTree(panel);
     (document.body || document.documentElement).prepend(panel);
+    reservePageSpaceForPanel();
   }
 
   function setTzedekLoadingState(isLoading, message) {
@@ -788,6 +908,7 @@
     }
 
     panel.insertAdjacentHTML("beforeend", getLoadingProgressMarkup(message));
+    reservePageSpaceForPanel();
   }
 
   function buildIssueGroups(alerts) {
@@ -981,15 +1102,16 @@
     const activeLevels = new Set(levelConfig.map(item => item.key));
     let sortMode = "found";
 
+    const issueByIndex = new Map(issues.map((issue) => [String(issue.originalIndex), issue]));
     const issuesHtml = function (renderIssues) {
       return renderIssues.map(issue => {
       const jumpLink = issue.targetId
-        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>Jump to location</a>"
-        : "<a class='smlc-jump-link' href='#' data-smlc-target='body'>Jump to location</a>";
+        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>"
+        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>";
 
       const messageHtml = issue.targetId
-        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "'>" + escapeHtml(issue.message) + "</a>"
-        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body'>" + escapeHtml(issue.message) + "</a>";
+        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>"
+        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>";
 
       const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
         ? issue.referenceLinks
@@ -1065,6 +1187,7 @@
       "<div class='smlc-headline-main'>",
       "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "'>See all issues (" + total + ")</button>",
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
+      "<button type='button' class='smlc-current-issue-btn' data-smlc-current-issue='1' disabled aria-disabled='true' title='Jump to an issue to enable this'>Current Issue</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
       "<a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(displayVersion) + "</a>",
@@ -1125,6 +1248,7 @@
         body.hidden = !willOpen;
         toggleBtn.setAttribute("aria-expanded", String(willOpen));
         updateToggleButtonLabel();
+        reservePageSpaceForPanel();
         return;
       }
 
@@ -1159,6 +1283,13 @@
         return;
       }
 
+      const currentIssueBtn = event.target.closest("button[data-smlc-current-issue]");
+      if (currentIssueBtn) {
+        if (!currentIssue) return;
+        showCurrentIssueModal(currentIssue);
+        return;
+      }
+
       const shutdownBtn = event.target.closest("button[data-smlc-shutdown]");
       if (shutdownBtn) {
         shutdownSmlc();
@@ -1168,6 +1299,8 @@
       const closeBtn = event.target.closest("button[data-smlc-close]");
       if (closeBtn) {
         panel.remove();
+        restorePageSpaceForPanel();
+        closeCurrentIssueModal();
         return;
       }
 
@@ -1191,10 +1324,17 @@
       const target = document.getElementById(targetId);
       if (!target) return;
 
+      const issue = issueByIndex.get(String(jumpLink.getAttribute("data-smlc-issue-index") || "")) || null;
+      setCurrentIssue(issue, panel);
+      hideIssueList(panel);
+      updateToggleButtonLabel();
+
       revealJumpAncestors(target);
 
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-      applyJumpTargetHighlight(target);
+      window.requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        applyJumpTargetHighlight(target);
+      });
     });
 
     const sortSelect = panel.querySelector("select[data-smlc-sort]");
@@ -1208,6 +1348,7 @@
 
     const mount = document.body || document.documentElement;
     mount.prepend(panel);
+    reservePageSpaceForPanel();
   }
 
   (async function run() {
