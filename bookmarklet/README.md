@@ -16,9 +16,13 @@ Tzedek's runner is built to start from a classic injected script, so you can use
 	python3 -m http.server 4183
 	```
 
-3. Create a new bookmark in your browser.
+3. Open the installer page in your browser:
 
-4. Use this as the bookmark URL:
+	```text
+	http://localhost:4183/demo/page/compliance-bookmarklet.html
+	```
+
+4. Drag the Tzedek bookmarklet button to your bookmarks bar, or create a new bookmark and use this as the bookmark URL:
 
 	```text
 	javascript:(()=>{const base='http://localhost:4183/demo/page/';window.TzedekConfig={...(window.TzedekConfig||{}),moduleUrl:new URL('smlCompliance.js',base).href,assetBaseUrl:new URL('assets/',base).href,bootstrapIconsHref:'',repositoryUrl:'https://github.com/zodiac1913/Tzedek'};document.getElementById('tzedek-bookmarklet-loader')?.remove();const script=document.createElement('script');script.id='tzedek-bookmarklet-loader';const bookmarkletVersion=(window.TzedekConfig.releaseVersion||'').toString().trim();const suffix=bookmarkletVersion?`&bookmarkletVersion=${encodeURIComponent(bookmarkletVersion)}`:'';script.src=new URL(`smlComplianceRunner.js?t=${Date.now()}${suffix}`,base).href;script.dataset.moduleUrl=window.TzedekConfig.moduleUrl;document.documentElement.appendChild(script);})();

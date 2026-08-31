@@ -3843,7 +3843,119 @@ function applyAlertSeverityToToggle(toggleButton, level) {
 
 function closeComplianceFixModal(modalBackdrop) {
   if (!(modalBackdrop instanceof HTMLElement)) return;
+  const cleanup = SMLC_FIX_MODAL_CLEANUP.get(modalBackdrop);
+  if (typeof cleanup === "function") {
+    cleanup();
+  }
+  SMLC_FIX_MODAL_CLEANUP.delete(modalBackdrop);
   modalBackdrop.remove();
+}
+
+const SMLC_FIX_MODAL_CLEANUP = new WeakMap();
+const SMLC_FIX_MODAL_FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])"
+].join(",");
+
+function activateComplianceFixModal(backdrop, modal, initialFocusTarget) {
+  if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement)) return;
+
+  const previousActiveElement = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+  const backgroundSiblings = Array.from(document.body.children)
+    .filter((node) => node instanceof HTMLElement && node !== backdrop);
+  const backgroundState = backgroundSiblings.map((node) => ({
+    node,
+    ariaHidden: node.getAttribute("aria-hidden"),
+    inert: node.inert
+  }));
+
+  backgroundSiblings.forEach((node) => {
+    node.inert = true;
+    node.setAttribute("aria-hidden", "true");
+  });
+
+  const previousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  const getFocusableElements = () => Array.from(modal.querySelectorAll(SMLC_FIX_MODAL_FOCUSABLE_SELECTOR))
+    .filter((node) => node instanceof HTMLElement && !node.hasAttribute("disabled") && !node.inert);
+
+  const moveFocusInside = (preferredTarget) => {
+    const fallbackTarget = preferredTarget instanceof HTMLElement ? preferredTarget : null;
+    const focusableElements = getFocusableElements();
+    const nextTarget = focusableElements.includes(fallbackTarget)
+      ? fallbackTarget
+      : (focusableElements[0] || modal);
+    nextTarget.focus();
+  };
+
+  const onKeydown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeComplianceFixModal(backdrop);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      modal.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    if (event.shiftKey) {
+      if (!activeElement || activeElement === firstElement || !modal.contains(activeElement)) {
+        event.preventDefault();
+        lastElement.focus();
+      }
+      return;
+    }
+
+    if (!activeElement || activeElement === lastElement || !modal.contains(activeElement)) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  };
+
+  const onFocusIn = (event) => {
+    if (event.target instanceof Node && !modal.contains(event.target)) {
+      moveFocusInside(initialFocusTarget);
+    }
+  };
+
+  document.addEventListener("keydown", onKeydown);
+  document.addEventListener("focusin", onFocusIn);
+
+  SMLC_FIX_MODAL_CLEANUP.set(backdrop, () => {
+    document.removeEventListener("keydown", onKeydown);
+    document.removeEventListener("focusin", onFocusIn);
+    document.body.style.overflow = previousBodyOverflow;
+    backgroundState.forEach(({ node, ariaHidden, inert }) => {
+      node.inert = inert;
+      if (ariaHidden === null) {
+        node.removeAttribute("aria-hidden");
+      } else {
+        node.setAttribute("aria-hidden", ariaHidden);
+      }
+    });
+    if (previousActiveElement && previousActiveElement.isConnected && !previousActiveElement.inert) {
+      previousActiveElement.focus();
+    }
+  });
+
+  moveFocusInside(initialFocusTarget);
 }
 
 function buildComplianceEvidenceSections(title, element) {
@@ -3875,16 +3987,18 @@ function showComplianceFixModal(title, element) {
   const evidenceSections = buildComplianceEvidenceSections(title, element);
   const copyText = fixContent.snippets.map((snippet) => `${snippet.heading}\n${snippet.code}`).join("\n\n");
   const existing = document.querySelector(".sml-compliance-fix-modal-backdrop");
-  if (existing) existing.remove();
+  if (existing instanceof HTMLElement) closeComplianceFixModal(existing);
 
   const backdrop = document.createElement("div");
   backdrop.className = "sml-compliance-fix-modal-backdrop";
   backdrop.setAttribute("role", "dialog");
   backdrop.setAttribute("aria-modal", "true");
-  backdrop.setAttribute("aria-label", "WCAG fix suggestion");
+  backdrop.setAttribute("aria-label", "Developer fix");
 
   const modal = document.createElement("div");
   modal.className = "sml-compliance-fix-modal";
+  modal.dataset.smlcAllowTabStop = "true";
+  modal.setAttribute("tabindex", "-1");
 
   const header = document.createElement("div");
   header.className = "sml-compliance-fix-modal-head";
@@ -3893,8 +4007,9 @@ function showComplianceFixModal(title, element) {
   const closeHeadButton = document.createElement("button");
   closeHeadButton.type = "button";
   closeHeadButton.className = "btn btn-sm btn-secondary";
+  closeHeadButton.dataset.smlcAllowTabStop = "true";
   closeHeadButton.textContent = "Close";
-  closeHeadButton.setAttribute("aria-label", "Close fix suggestion");
+  closeHeadButton.setAttribute("aria-label", "Close developer fix");
   closeHeadButton.addEventListener("click", () => closeComplianceFixModal(backdrop));
   header.appendChild(closeHeadButton);
 
@@ -3936,6 +4051,7 @@ function showComplianceFixModal(title, element) {
   const copyButton = document.createElement("button");
   copyButton.type = "button";
   copyButton.className = "btn btn-sm btn-dark sml-compliance-btn";
+  copyButton.dataset.smlcAllowTabStop = "true";
   copyButton.setAttribute("title", "Copy fix markup to clipboard");
   copyButton.setAttribute("aria-label", "Copy fix markup to clipboard");
   setSmlcOwnedHtml(copyButton, "<i class='bi bi-clipboard' aria-hidden='true'></i> Copy");
@@ -3951,14 +4067,13 @@ function showComplianceFixModal(title, element) {
     const locateButton = document.createElement("button");
     locateButton.type = "button";
     locateButton.className = "btn btn-sm btn-info sml-compliance-btn";
+    locateButton.dataset.smlcAllowTabStop = "true";
     locateButton.setAttribute("title", "Take me to this element");
     locateButton.setAttribute("aria-label", "Take me to this element");
     setSmlcOwnedHtml(locateButton, "<i class='bi bi-crosshair' aria-hidden='true'></i> Take me to this element");
     locateButton.addEventListener("click", () => {
-      const located = locateComplianceElement(element);
-      if (located) {
-        setSmlcOwnedHtml(locateButton, "<i class='bi bi-check2-circle' aria-hidden='true'></i> Element highlighted");
-      }
+      closeComplianceFixModal(backdrop);
+      locateComplianceElement(element);
     });
     footer.appendChild(locateButton);
   }
@@ -3966,8 +4081,9 @@ function showComplianceFixModal(title, element) {
   const closeButton = document.createElement("button");
   closeButton.type = "button";
   closeButton.className = "btn btn-sm btn-secondary sml-compliance-btn";
+  closeButton.dataset.smlcAllowTabStop = "true";
   closeButton.textContent = "Done";
-  closeButton.setAttribute("aria-label", "Close fix suggestion");
+  closeButton.setAttribute("aria-label", "Close developer fix");
   closeButton.addEventListener("click", () => closeComplianceFixModal(backdrop));
 
   footer.appendChild(copyButton);
@@ -3978,7 +4094,6 @@ function showComplianceFixModal(title, element) {
   modal.appendChild(footer);
   backdrop.appendChild(modal);
   markSmlcElementTree(backdrop);
-  enforceSmlcPopupUntabbableSubtree(backdrop);
 
   backdrop.addEventListener("click", (event) => {
     if (event.target === backdrop) {
@@ -3986,15 +4101,8 @@ function showComplianceFixModal(title, element) {
     }
   });
 
-  const onEsc = (event) => {
-    if (event.key === "Escape") {
-      closeComplianceFixModal(backdrop);
-      document.removeEventListener("keydown", onEsc);
-    }
-  };
-  document.addEventListener("keydown", onEsc);
-
   document.body.appendChild(backdrop);
+  activateComplianceFixModal(backdrop, modal, closeHeadButton);
 }
 
 function getLevelOneHeadingElements() {
@@ -4040,9 +4148,9 @@ function maybeAppendFixButton(alertDiv, level, title, element) {
     const fixButton = document.createElement("button");
     fixButton.type = "button";
     fixButton.className = `btn btn-sm ${alertButtonClass} sml-compliance-fix-btn`;
-    fixButton.setAttribute("title", "Show me how to fix this");
-    fixButton.setAttribute("aria-label", "Show me how to fix this");
-    setSmlcOwnedHtml(fixButton, "<i class='bi bi-wrench-adjustable-circle-fill' aria-hidden='true'></i> Show me how to fix this");
+    fixButton.setAttribute("title", "Developer Fix");
+    fixButton.setAttribute("aria-label", "Developer Fix");
+    setSmlcOwnedHtml(fixButton, "<i class='bi bi-wrench-adjustable-circle-fill' aria-hidden='true'></i> Developer Fix");
     fixButton.addEventListener("click", (event) => {
       stopComplianceControlEvent(event);
       showComplianceFixModal(normalizedTitle, element);
@@ -5074,9 +5182,16 @@ function getCanonicalReferenceUrl(title, message) {
   return "";
 }
 
+function getSmlcNewWindowLinkLabel(label) {
+  const normalizedLabel = String(label || "More Info").trim() || "More Info";
+  return /\(opens in new window\)$/i.test(normalizedLabel)
+    ? normalizedLabel
+    : `${normalizedLabel} (opens in new window)`;
+}
+
 function getCanonicalReferenceLinks(title, message) {
   const canonicalUrl = getCanonicalReferenceUrl(title, message);
-  return canonicalUrl ? [{ label: "More Info", url: canonicalUrl }] : [];
+  return canonicalUrl ? [{ label: getSmlcNewWindowLinkLabel("More Info"), url: canonicalUrl }] : [];
 }
 
 function getMoreInfoLinks(title, message) {
@@ -5086,7 +5201,7 @@ function getMoreInfoLinks(title, message) {
 
   if (!hasGuideLink) {
     links.push({
-      label: links.length > 0 ? "How to Fix" : "More Info",
+      label: getSmlcNewWindowLinkLabel(links.length > 0 ? "How to Fix" : "More Info"),
       url: guideUrl
     });
   }
@@ -5514,6 +5629,8 @@ function createComplianceAlert(level, title, message, element, options = {}) {
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
     moreInfoLink.textContent = linkInfo.label || "More Info";
+    moreInfoLink.setAttribute("title", linkInfo.label || "More Info");
+    moreInfoLink.setAttribute("aria-label", linkInfo.label || "More Info");
     makeSmlcControlUntabbable(moreInfoLink);
     alertDiv.appendChild(moreInfoLink);
   }
@@ -6860,7 +6977,7 @@ export async function runComplianceAudit(cfg = {}) {
   return await compliance.runCompleteAudit();
 }
 
-export { getCanonicalReferenceLinks, getComplianceFixContent, getMoreInfoLinks, getMoreInfoUrl, getPlainLanguageIssueDescription };
+export { getCanonicalReferenceLinks, getComplianceFixContent, getMoreInfoLinks, getMoreInfoUrl, getPlainLanguageIssueDescription, getSmlcNewWindowLinkLabel };
 
 /**
  * Global helper for development

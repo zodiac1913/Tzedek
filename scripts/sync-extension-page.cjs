@@ -7,27 +7,44 @@ const repoRoot = path.resolve(__dirname, "..");
 const sipsExecutable = "/usr/bin/sips";
 const runtimeDir = path.join(repoRoot, "src", "runtime");
 const runtimeAssetsDir = path.join(runtimeDir, "assets");
+const bookmarkletDir = path.join(repoRoot, "bookmarklet");
 const extensionPageDir = path.join(repoRoot, "extension", "page");
 const extensionAssetsDir = path.join(extensionPageDir, "assets");
 const extensionIconsDir = path.join(repoRoot, "extension", "icons");
 const extensionIconSizes = [16, 32, 48, 128];
 const canGenerateIconsWithSips = process.platform === "darwin" && fs.existsSync(sipsExecutable);
 
-const filesToCopy = [
+const runtimeFilesToCopy = [
   "smlCompliance.js",
   "smlComplianceRunner.js"
+];
+
+const bookmarkletFilesToCopy = [
+  "compliance-bookmarklet.html"
 ];
 
 fs.mkdirSync(extensionPageDir, { recursive: true });
 fs.mkdirSync(extensionAssetsDir, { recursive: true });
 fs.mkdirSync(extensionIconsDir, { recursive: true });
 
-for (const fileName of filesToCopy) {
+for (const fileName of runtimeFilesToCopy) {
   const sourcePath = path.join(runtimeDir, fileName);
   const targetPath = path.join(extensionPageDir, fileName);
 
   if (!fs.existsSync(sourcePath)) {
     throw new Error(`Missing runtime file: ${sourcePath}. Run npm run import:cats first.`);
+  }
+
+  fs.copyFileSync(sourcePath, targetPath);
+  console.log(`Synced ${fileName}`);
+}
+
+for (const fileName of bookmarkletFilesToCopy) {
+  const sourcePath = path.join(bookmarkletDir, fileName);
+  const targetPath = path.join(extensionPageDir, fileName);
+
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Missing bookmarklet file: ${sourcePath}.`);
   }
 
   fs.copyFileSync(sourcePath, targetPath);

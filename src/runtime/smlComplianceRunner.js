@@ -23,9 +23,19 @@
   let currentOptions = null;
   let currentGetMoreInfoUrl = null;
   let currentGetMoreInfoLinks = null;
+  let currentGetNewWindowLinkLabel = null;
   let refreshInFlight = false;
   let reservedPageSpace = null;
   let currentIssue = null;
+  const CURRENT_ISSUE_MODAL_CLEANUP = new WeakMap();
+  const CURRENT_ISSUE_MODAL_FOCUSABLE_SELECTOR = [
+    "button:not([disabled])",
+    "[href]",
+    "input:not([disabled]):not([type='hidden'])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])"
+  ].join(",");
 
   function getRuntimeConfig() {
     const config = globalThis.TzedekConfig;
@@ -60,7 +70,7 @@
     return {
       bookmarkletVersion: normalizedBookmarkletVersion,
       runtimeVersion: displayVersion,
-      installUrl: "/compliance-bookmarklet.html"
+      installUrl: getInstallUrl()
     };
   }
 
@@ -71,6 +81,15 @@
     }
 
     return DEFAULT_REPOSITORY_URL;
+  }
+
+  function getInstallUrl() {
+    const configuredUrl = getRuntimeConfig().installUrl;
+    if (typeof configuredUrl === "string" && configuredUrl.trim().length > 0) {
+      return configuredUrl.trim();
+    }
+
+    return new URL("./compliance-bookmarklet.html", CURRENT_SCRIPT_SRC || window.location.href).href;
   }
 
   function resolveModuleUrl() {
@@ -212,6 +231,114 @@
     return panel;
   }
 
+  function getNewWindowLinkLabel(label) {
+    if (typeof currentGetNewWindowLinkLabel === "function") {
+      return currentGetNewWindowLinkLabel(label);
+    }
+
+    const normalizedLabel = String(label || "More Info").trim() || "More Info";
+    return /\(opens in new window\)$/i.test(normalizedLabel)
+      ? normalizedLabel
+      : normalizedLabel + " (opens in new window)";
+  }
+
+  function activateCurrentIssueModal(backdrop, modal, initialFocusTarget) {
+    if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement)) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const backgroundSiblings = Array.from(document.body.children)
+      .filter((node) => node instanceof HTMLElement && node !== backdrop);
+    const backgroundState = backgroundSiblings.map((node) => ({
+      node,
+      ariaHidden: node.getAttribute("aria-hidden"),
+      inert: node.inert
+    }));
+
+    backgroundSiblings.forEach((node) => {
+      node.inert = true;
+      node.setAttribute("aria-hidden", "true");
+    });
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const getFocusableElements = () => Array.from(modal.querySelectorAll(CURRENT_ISSUE_MODAL_FOCUSABLE_SELECTOR))
+      .filter((node) => node instanceof HTMLElement && !node.hasAttribute("disabled") && !node.inert);
+
+    const moveFocusInside = (preferredTarget) => {
+      const fallbackTarget = preferredTarget instanceof HTMLElement ? preferredTarget : null;
+      const focusableElements = getFocusableElements();
+      const nextTarget = focusableElements.includes(fallbackTarget)
+        ? fallbackTarget
+        : (focusableElements[0] || modal);
+      nextTarget.focus();
+    };
+
+    const onKeydown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCurrentIssueModal(backdrop);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modal.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (!activeElement || activeElement === firstElement || !modal.contains(activeElement)) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (!activeElement || activeElement === lastElement || !modal.contains(activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    const onFocusIn = (event) => {
+      if (event.target instanceof Node && !modal.contains(event.target)) {
+        moveFocusInside(initialFocusTarget);
+      }
+    };
+
+    document.addEventListener("keydown", onKeydown);
+    document.addEventListener("focusin", onFocusIn);
+
+    CURRENT_ISSUE_MODAL_CLEANUP.set(backdrop, () => {
+      document.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("focusin", onFocusIn);
+      document.body.style.overflow = previousBodyOverflow;
+      backgroundState.forEach(({ node, ariaHidden, inert }) => {
+        node.inert = inert;
+        if (ariaHidden === null) {
+          node.removeAttribute("aria-hidden");
+        } else {
+          node.setAttribute("aria-hidden", ariaHidden);
+        }
+      });
+      if (previousActiveElement && previousActiveElement.isConnected && !previousActiveElement.inert) {
+        previousActiveElement.focus();
+      }
+    });
+
+    moveFocusInside(initialFocusTarget);
+  }
+
   function cacheExports(module) {
     if (module && typeof module.smlCompliance === "function") {
       if (typeof module.getMoreInfoUrl === "function") {
@@ -219,6 +346,9 @@
       }
       if (typeof module.getMoreInfoLinks === "function") {
         currentGetMoreInfoLinks = module.getMoreInfoLinks;
+      }
+      if (typeof module.getSmlcNewWindowLinkLabel === "function") {
+        currentGetNewWindowLinkLabel = module.getSmlcNewWindowLinkLabel;
       }
       if (typeof window.smlCompliance !== "function") {
         window.smlCompliance = module.smlCompliance;
@@ -280,6 +410,9 @@
         if (typeof window.smlComplianceGetMoreInfoLinks === "function") {
           currentGetMoreInfoLinks = window.smlComplianceGetMoreInfoLinks;
         }
+        if (typeof window.smlComplianceGetNewWindowLinkLabel === "function") {
+          currentGetNewWindowLinkLabel = window.smlComplianceGetNewWindowLinkLabel;
+        }
         if (typeof window.smlCompliance === "function") {
           resolve(window.smlCompliance);
         } else {
@@ -293,7 +426,7 @@
       const script = document.createElement("script");
       script.id = scriptId;
       script.type = "module";
-      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.dispatchEvent(new Event('" + readyEventName + "'));";
+      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks, getSmlcNewWindowLinkLabel } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.smlComplianceGetNewWindowLinkLabel = getSmlcNewWindowLinkLabel; window.dispatchEvent(new Event('" + readyEventName + "'));";
       script.onerror = function () {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
@@ -432,11 +565,24 @@
 
     currentButton.disabled = !currentIssue;
     currentButton.setAttribute("aria-disabled", currentIssue ? "false" : "true");
-    currentButton.setAttribute("title", currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this");
+    const currentIssueLabel = currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this";
+    currentButton.setAttribute("title", currentIssueLabel);
+    currentButton.setAttribute("aria-label", currentIssueLabel);
   }
 
-  function closeCurrentIssueModal() {
-    document.querySelectorAll(".smlc-current-issue-backdrop").forEach((modal) => modal.remove());
+  function closeCurrentIssueModal(targetModal) {
+    const modals = targetModal instanceof HTMLElement
+      ? [targetModal]
+      : Array.from(document.querySelectorAll(".smlc-current-issue-backdrop"));
+    modals.forEach((modal) => {
+      if (!(modal instanceof HTMLElement)) return;
+      const cleanup = CURRENT_ISSUE_MODAL_CLEANUP.get(modal);
+      if (typeof cleanup === "function") {
+        cleanup();
+      }
+      CURRENT_ISSUE_MODAL_CLEANUP.delete(modal);
+      modal.remove();
+    });
   }
 
   function showCurrentIssueModal(issue) {
@@ -445,7 +591,10 @@
     closeCurrentIssueModal();
     const referenceLinks = (Array.isArray(issue.referenceLinks) ? issue.referenceLinks : [])
       .filter((link) => link.url)
-      .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+      .map((link) => {
+        const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
+        return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+      })
       .join("");
     const modal = document.createElement("div");
     modal.className = "smlc-current-issue-backdrop";
@@ -456,7 +605,7 @@
       "<div class='smlc-current-issue-modal'>",
       "<div class='smlc-current-issue-head'>",
       "<strong>Current Issue</strong>",
-      "<button type='button' class='smlc-close-btn' data-smlc-close-current='1' aria-label='Close current issue'>Close</button>",
+      "<button type='button' class='smlc-close-btn' data-smlc-close-current='1' aria-label='Close current issue' title='Close current issue'>Close</button>",
       "</div>",
       "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
       issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
@@ -467,11 +616,23 @@
       referenceLinks ? "<div class='smlc-issue-actions'>" + referenceLinks + "</div>" : "",
       "</div>"
     ].join(""));
+    const currentIssueDialog = modal.querySelector(".smlc-current-issue-modal");
+    const closeButton = modal.querySelector("button[data-smlc-close-current]");
+    if (currentIssueDialog instanceof HTMLElement) {
+      currentIssueDialog.setAttribute("data-smlc-allow-tab-stop", "true");
+      currentIssueDialog.setAttribute("tabindex", "-1");
+    }
+    if (closeButton instanceof HTMLElement) {
+      closeButton.setAttribute("data-smlc-allow-tab-stop", "true");
+    }
     markSmlcElementTree(modal);
     document.body.appendChild(modal);
+    if (currentIssueDialog instanceof HTMLElement) {
+      activateCurrentIssueModal(modal, currentIssueDialog, closeButton instanceof HTMLElement ? closeButton : currentIssueDialog);
+    }
     modal.addEventListener("click", function (event) {
       if (event.target === modal || event.target.closest("button[data-smlc-close-current]")) {
-        closeCurrentIssueModal();
+        closeCurrentIssueModal(modal);
       }
     });
   }
@@ -874,9 +1035,9 @@
     panel.setAttribute("aria-busy", "true");
     panel.insertAdjacentHTML("beforeend", [
       "<div class='smlc-headline'>",
-      "<div class='smlc-headline-main'><button type='button' class='smlc-toggle-btn' disabled aria-disabled='true'>Auditing page</button></div>",
+      "<div class='smlc-headline-main'><button type='button' class='smlc-toggle-btn' disabled aria-disabled='true' aria-label='Auditing page' title='Auditing page'>Auditing page</button></div>",
       "<div class='smlc-headline-center'><a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(getDisplayVersion()) + "</a></div>",
-      "<div class='smlc-actions'><button type='button' class='btn btn-dark' disabled aria-disabled='true'>Tzedek</button></div>",
+      "<div class='smlc-actions'><button type='button' class='btn btn-dark' disabled aria-disabled='true' aria-label='Tzedek' title='Tzedek'>Tzedek</button></div>",
       "</div>",
       getLoadingProgressMarkup(message)
     ].join(""));
@@ -967,7 +1128,7 @@
       if (Array.isArray(mappedLinks)) {
         const validLinks = mappedLinks
           .map((link) => ({
-            label: String(link?.label || "More Info").trim() || "More Info",
+            label: getNewWindowLinkLabel(String(link?.label || "More Info").trim() || "More Info"),
             url: String(link?.url || "").trim()
           }))
           .filter((link) => link.url);
@@ -975,7 +1136,7 @@
       }
     }
 
-    return [{ label: "More Info", url: getIssueReferenceUrl(title, message) }];
+    return [{ label: getNewWindowLinkLabel("More Info"), url: getIssueReferenceUrl(title, message) }];
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -1106,18 +1267,21 @@
     const issuesHtml = function (renderIssues) {
       return renderIssues.map(issue => {
       const jumpLink = issue.targetId
-        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>"
-        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>";
+        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>"
+        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>";
 
       const messageHtml = issue.targetId
-        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>"
-        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>";
+        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + escapeAttribute(issue.message) + "' title='" + escapeAttribute(issue.message) + "'>" + escapeHtml(issue.message) + "</a>"
+        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + escapeAttribute(issue.message) + "' title='" + escapeAttribute(issue.message) + "'>" + escapeHtml(issue.message) + "</a>";
 
       const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
         ? issue.referenceLinks
-        : [{ label: "More Info", url: issue.referenceUrl || "" }])
+        : [{ label: getNewWindowLinkLabel("More Info"), url: issue.referenceUrl || "" }])
         .filter((link) => link.url)
-        .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+        .map((link) => {
+          const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
+          return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+        })
         .join("");
 
       return [
@@ -1172,9 +1336,12 @@
         ? visibleCountOverride
         : getVisibleIssues().length;
 
-      toggleButton.textContent = body.hidden
+      const toggleButtonLabel = body.hidden
         ? "See all issues (" + visibleCount + " of " + total + ")"
         : "Hide all issues (" + visibleCount + " of " + total + ")";
+      toggleButton.textContent = toggleButtonLabel;
+      toggleButton.setAttribute("title", toggleButtonLabel);
+      toggleButton.setAttribute("aria-label", toggleButtonLabel);
     }
 
     const panel = document.createElement("section");
@@ -1185,20 +1352,20 @@
     panel.innerHTML = [
       "<div class='smlc-headline'>",
       "<div class='smlc-headline-main'>",
-      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "'>See all issues (" + total + ")</button>",
+      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' aria-label='See all issues (" + total + ")' title='See all issues (" + total + ")'>See all issues (" + total + ")</button>",
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
-      "<button type='button' class='smlc-current-issue-btn' data-smlc-current-issue='1' disabled aria-disabled='true' title='Jump to an issue to enable this'>Current Issue</button>",
+      "<button type='button' class='smlc-current-issue-btn' data-smlc-current-issue='1' disabled aria-disabled='true' aria-label='Jump to an issue to enable this' title='Jump to an issue to enable this'>Current Issue</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
       "<a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(displayVersion) + "</a>",
       "</div>",
       "<div class='smlc-actions'>",
-      "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar'>Close Issues Bar</button>",
-      "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek'>Close Tzedek</button>",
+      "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar' title='Close issues bar'>Close Issues Bar</button>",
+      "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek' title='Close Tzedek'>Close Tzedek</button>",
       "</div>",
       "</div>",
-      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice'>✕</button></div>" : "",
-      blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
+      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "' aria-label='Open the installer page' title='Open the installer page'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice' title='Dismiss update notice'>✕</button></div>" : "",
+      blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' title='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
       "<div id='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' class='smlc-body' hidden>",
       "<div class='smlc-controls'>",
       "<div class='smlc-summary' data-smlc-summary></div>",
@@ -1224,7 +1391,8 @@
 
       summaryHost.innerHTML = levelConfig.map(level => {
         const pressed = activeLevels.has(level.key);
-        return "<button type='button' class='smlc-pill' data-smlc-level='" + escapeHtml(level.key) + "' aria-pressed='" + String(pressed) + "'>" + escapeHtml(level.label) + ": " + level.count + "</button>";
+        const pillLabel = level.label + ": " + level.count;
+        return "<button type='button' class='smlc-pill' data-smlc-level='" + escapeHtml(level.key) + "' aria-pressed='" + String(pressed) + "' aria-label='" + escapeAttribute(pillLabel) + "' title='" + escapeAttribute(pillLabel) + "'>" + escapeHtml(pillLabel) + "</button>";
       }).join("");
 
       const visibleIssues = getVisibleIssues();

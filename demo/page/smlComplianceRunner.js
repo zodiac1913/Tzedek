@@ -23,9 +23,19 @@
   let currentOptions = null;
   let currentGetMoreInfoUrl = null;
   let currentGetMoreInfoLinks = null;
+  let currentGetNewWindowLinkLabel = null;
   let refreshInFlight = false;
   let reservedPageSpace = null;
   let currentIssue = null;
+  const CURRENT_ISSUE_MODAL_CLEANUP = new WeakMap();
+  const CURRENT_ISSUE_MODAL_FOCUSABLE_SELECTOR = [
+    "button:not([disabled])",
+    "[href]",
+    "input:not([disabled]):not([type='hidden'])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])"
+  ].join(",");
 
   function getRuntimeConfig() {
     const config = globalThis.TzedekConfig;
@@ -60,7 +70,7 @@
     return {
       bookmarkletVersion: normalizedBookmarkletVersion,
       runtimeVersion: displayVersion,
-      installUrl: "/compliance-bookmarklet.html"
+      installUrl: getInstallUrl()
     };
   }
 
@@ -71,6 +81,15 @@
     }
 
     return DEFAULT_REPOSITORY_URL;
+  }
+
+  function getInstallUrl() {
+    const configuredUrl = getRuntimeConfig().installUrl;
+    if (typeof configuredUrl === "string" && configuredUrl.trim().length > 0) {
+      return configuredUrl.trim();
+    }
+
+    return new URL("./compliance-bookmarklet.html", CURRENT_SCRIPT_SRC || window.location.href).href;
   }
 
   function resolveModuleUrl() {
@@ -212,6 +231,114 @@
     return panel;
   }
 
+  function getNewWindowLinkLabel(label) {
+    if (typeof currentGetNewWindowLinkLabel === "function") {
+      return currentGetNewWindowLinkLabel(label);
+    }
+
+    const normalizedLabel = String(label || "More Info").trim() || "More Info";
+    return /\(opens in new window\)$/i.test(normalizedLabel)
+      ? normalizedLabel
+      : normalizedLabel + " (opens in new window)";
+  }
+
+  function activateCurrentIssueModal(backdrop, modal, initialFocusTarget) {
+    if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement)) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const backgroundSiblings = Array.from(document.body.children)
+      .filter((node) => node instanceof HTMLElement && node !== backdrop);
+    const backgroundState = backgroundSiblings.map((node) => ({
+      node,
+      ariaHidden: node.getAttribute("aria-hidden"),
+      inert: node.inert
+    }));
+
+    backgroundSiblings.forEach((node) => {
+      node.inert = true;
+      node.setAttribute("aria-hidden", "true");
+    });
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const getFocusableElements = () => Array.from(modal.querySelectorAll(CURRENT_ISSUE_MODAL_FOCUSABLE_SELECTOR))
+      .filter((node) => node instanceof HTMLElement && !node.hasAttribute("disabled") && !node.inert);
+
+    const moveFocusInside = (preferredTarget) => {
+      const fallbackTarget = preferredTarget instanceof HTMLElement ? preferredTarget : null;
+      const focusableElements = getFocusableElements();
+      const nextTarget = focusableElements.includes(fallbackTarget)
+        ? fallbackTarget
+        : (focusableElements[0] || modal);
+      nextTarget.focus();
+    };
+
+    const onKeydown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCurrentIssueModal(backdrop);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modal.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (!activeElement || activeElement === firstElement || !modal.contains(activeElement)) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (!activeElement || activeElement === lastElement || !modal.contains(activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    const onFocusIn = (event) => {
+      if (event.target instanceof Node && !modal.contains(event.target)) {
+        moveFocusInside(initialFocusTarget);
+      }
+    };
+
+    document.addEventListener("keydown", onKeydown);
+    document.addEventListener("focusin", onFocusIn);
+
+    CURRENT_ISSUE_MODAL_CLEANUP.set(backdrop, () => {
+      document.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("focusin", onFocusIn);
+      document.body.style.overflow = previousBodyOverflow;
+      backgroundState.forEach(({ node, ariaHidden, inert }) => {
+        node.inert = inert;
+        if (ariaHidden === null) {
+          node.removeAttribute("aria-hidden");
+        } else {
+          node.setAttribute("aria-hidden", ariaHidden);
+        }
+      });
+      if (previousActiveElement && previousActiveElement.isConnected && !previousActiveElement.inert) {
+        previousActiveElement.focus();
+      }
+    });
+
+    moveFocusInside(initialFocusTarget);
+  }
+
   function cacheExports(module) {
     if (module && typeof module.smlCompliance === "function") {
       if (typeof module.getMoreInfoUrl === "function") {
@@ -219,6 +346,9 @@
       }
       if (typeof module.getMoreInfoLinks === "function") {
         currentGetMoreInfoLinks = module.getMoreInfoLinks;
+      }
+      if (typeof module.getSmlcNewWindowLinkLabel === "function") {
+        currentGetNewWindowLinkLabel = module.getSmlcNewWindowLinkLabel;
       }
       if (typeof window.smlCompliance !== "function") {
         window.smlCompliance = module.smlCompliance;
@@ -280,6 +410,9 @@
         if (typeof window.smlComplianceGetMoreInfoLinks === "function") {
           currentGetMoreInfoLinks = window.smlComplianceGetMoreInfoLinks;
         }
+        if (typeof window.smlComplianceGetNewWindowLinkLabel === "function") {
+          currentGetNewWindowLinkLabel = window.smlComplianceGetNewWindowLinkLabel;
+        }
         if (typeof window.smlCompliance === "function") {
           resolve(window.smlCompliance);
         } else {
@@ -293,7 +426,7 @@
       const script = document.createElement("script");
       script.id = scriptId;
       script.type = "module";
-      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.dispatchEvent(new Event('" + readyEventName + "'));";
+      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks, getSmlcNewWindowLinkLabel } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.smlComplianceGetNewWindowLinkLabel = getSmlcNewWindowLinkLabel; window.dispatchEvent(new Event('" + readyEventName + "'));";
       script.onerror = function () {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
@@ -435,8 +568,19 @@
     currentButton.setAttribute("title", currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this");
   }
 
-  function closeCurrentIssueModal() {
-    document.querySelectorAll(".smlc-current-issue-backdrop").forEach((modal) => modal.remove());
+  function closeCurrentIssueModal(targetModal) {
+    const modals = targetModal instanceof HTMLElement
+      ? [targetModal]
+      : Array.from(document.querySelectorAll(".smlc-current-issue-backdrop"));
+    modals.forEach((modal) => {
+      if (!(modal instanceof HTMLElement)) return;
+      const cleanup = CURRENT_ISSUE_MODAL_CLEANUP.get(modal);
+      if (typeof cleanup === "function") {
+        cleanup();
+      }
+      CURRENT_ISSUE_MODAL_CLEANUP.delete(modal);
+      modal.remove();
+    });
   }
 
   function showCurrentIssueModal(issue) {
@@ -445,7 +589,10 @@
     closeCurrentIssueModal();
     const referenceLinks = (Array.isArray(issue.referenceLinks) ? issue.referenceLinks : [])
       .filter((link) => link.url)
-      .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+      .map((link) => {
+        const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
+        return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+      })
       .join("");
     const modal = document.createElement("div");
     modal.className = "smlc-current-issue-backdrop";
@@ -467,11 +614,23 @@
       referenceLinks ? "<div class='smlc-issue-actions'>" + referenceLinks + "</div>" : "",
       "</div>"
     ].join(""));
+    const currentIssueDialog = modal.querySelector(".smlc-current-issue-modal");
+    const closeButton = modal.querySelector("button[data-smlc-close-current]");
+    if (currentIssueDialog instanceof HTMLElement) {
+      currentIssueDialog.setAttribute("data-smlc-allow-tab-stop", "true");
+      currentIssueDialog.setAttribute("tabindex", "-1");
+    }
+    if (closeButton instanceof HTMLElement) {
+      closeButton.setAttribute("data-smlc-allow-tab-stop", "true");
+    }
     markSmlcElementTree(modal);
     document.body.appendChild(modal);
+    if (currentIssueDialog instanceof HTMLElement) {
+      activateCurrentIssueModal(modal, currentIssueDialog, closeButton instanceof HTMLElement ? closeButton : currentIssueDialog);
+    }
     modal.addEventListener("click", function (event) {
       if (event.target === modal || event.target.closest("button[data-smlc-close-current]")) {
-        closeCurrentIssueModal();
+        closeCurrentIssueModal(modal);
       }
     });
   }
@@ -967,7 +1126,7 @@
       if (Array.isArray(mappedLinks)) {
         const validLinks = mappedLinks
           .map((link) => ({
-            label: String(link?.label || "More Info").trim() || "More Info",
+            label: getNewWindowLinkLabel(String(link?.label || "More Info").trim() || "More Info"),
             url: String(link?.url || "").trim()
           }))
           .filter((link) => link.url);
@@ -975,7 +1134,7 @@
       }
     }
 
-    return [{ label: "More Info", url: getIssueReferenceUrl(title, message) }];
+    return [{ label: getNewWindowLinkLabel("More Info"), url: getIssueReferenceUrl(title, message) }];
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -1115,9 +1274,12 @@
 
       const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
         ? issue.referenceLinks
-        : [{ label: "More Info", url: issue.referenceUrl || "" }])
+        : [{ label: getNewWindowLinkLabel("More Info"), url: issue.referenceUrl || "" }])
         .filter((link) => link.url)
-        .map((link) => "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer'>" + escapeHtml(link.label || "More Info") + "</a>")
+        .map((link) => {
+          const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
+          return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+        })
         .join("");
 
       return [

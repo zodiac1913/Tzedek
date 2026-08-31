@@ -9,7 +9,7 @@
     "import:cats": "node scripts/import-from-cats.cjs",
     "demo:sync": "node scripts/sync-demo-page.cjs",
     "extension:sync": "node scripts/sync-extension-page.cjs",
-    "cats:sync": "node scripts/sync-cats-tzedek.cjs",
-    "verify:cats": "node scripts/verify-cats-tzedek-sync.cjs"
+    "cats:sync": "npm --prefix ../cms-dotnet-cats-source run tzedek:prepare-publish",
+    "verify:cats": "npm --prefix ../cms-dotnet-cats-source run tzedek:verify-sync"
   }
 }
