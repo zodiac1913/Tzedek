@@ -2573,7 +2573,7 @@ function buildContextualLinkFixSuggestions(title, element) {
   return [
     {
       heading: "Warn users in the visible link text",
-      code: `<a href="${href}" target="_blank" rel="noopener noreferrer">${linkText} (opens in new window)</a>`
+      code: `<a href="${href}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
     },
     {
       heading: "Keep short visible text but add the warning to the accessible name",

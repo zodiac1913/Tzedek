@@ -2573,7 +2573,7 @@ function buildContextualLinkFixSuggestions(title, element) {
   return [
     {
       heading: "Warn users in the visible link text",
-      code: `<a href="${href}" target="_blank" rel="noopener noreferrer">${linkText} (opens in new window)</a>`
+      code: `<a href="${href}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
     },
     {
       heading: "Keep short visible text but add the warning to the accessible name",
@@ -5639,6 +5639,8 @@ function createComplianceAlert(level, title, message, element, options = {}) {
   jumpButton.type = "button";
   jumpButton.className = "sml-compliance-more-info";
   jumpButton.textContent = "Jump to location";
+  jumpButton.setAttribute("title", "Jump to location");
+  jumpButton.setAttribute("aria-label", "Jump to location");
   jumpButton.addEventListener("click", (event) => {
     stopComplianceControlEvent(event);
     setInlineAlertExpanded(toggleButton, panesContainer, false);

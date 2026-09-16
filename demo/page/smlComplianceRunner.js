@@ -565,7 +565,9 @@
 
     currentButton.disabled = !currentIssue;
     currentButton.setAttribute("aria-disabled", currentIssue ? "false" : "true");
-    currentButton.setAttribute("title", currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this");
+    const currentIssueLabel = currentIssue ? "Review the issue you jumped to" : "Jump to an issue to enable this";
+    currentButton.setAttribute("title", currentIssueLabel);
+    currentButton.setAttribute("aria-label", currentIssueLabel);
   }
 
   function closeCurrentIssueModal(targetModal) {
@@ -603,7 +605,7 @@
       "<div class='smlc-current-issue-modal'>",
       "<div class='smlc-current-issue-head'>",
       "<strong>Current Issue</strong>",
-      "<button type='button' class='smlc-close-btn' data-smlc-close-current='1' aria-label='Close current issue'>Close</button>",
+      "<button type='button' class='smlc-close-btn' data-smlc-close-current='1' aria-label='Close current issue' title='Close current issue'>Close</button>",
       "</div>",
       "<div class='smlc-title'>[" + escapeHtml(issue.levelLabel) + "] " + escapeHtml(issue.title) + "</div>",
       issue.plainDescription ? "<div class='smlc-plain'>" + escapeHtml(issue.plainDescription) + "</div>" : "",
@@ -1033,9 +1035,9 @@
     panel.setAttribute("aria-busy", "true");
     panel.insertAdjacentHTML("beforeend", [
       "<div class='smlc-headline'>",
-      "<div class='smlc-headline-main'><button type='button' class='smlc-toggle-btn' disabled aria-disabled='true'>Auditing page</button></div>",
+      "<div class='smlc-headline-main'><button type='button' class='smlc-toggle-btn' disabled aria-disabled='true' aria-label='Auditing page' title='Auditing page'>Auditing page</button></div>",
       "<div class='smlc-headline-center'><a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(getDisplayVersion()) + "</a></div>",
-      "<div class='smlc-actions'><button type='button' class='btn btn-dark' disabled aria-disabled='true'>Tzedek</button></div>",
+      "<div class='smlc-actions'><button type='button' class='btn btn-dark' disabled aria-disabled='true' aria-label='Tzedek' title='Tzedek'>Tzedek</button></div>",
       "</div>",
       getLoadingProgressMarkup(message)
     ].join(""));
@@ -1265,12 +1267,12 @@
     const issuesHtml = function (renderIssues) {
       return renderIssues.map(issue => {
       const jumpLink = issue.targetId
-        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>"
-        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>Jump to location</a>";
+        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>"
+        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>";
 
       const messageHtml = issue.targetId
-        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>"
-        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "'>" + escapeHtml(issue.message) + "</a>";
+        ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + escapeAttribute(issue.message) + "' title='" + escapeAttribute(issue.message) + "'>" + escapeHtml(issue.message) + "</a>"
+        : "<a class='smlc-issue-message-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + escapeAttribute(issue.message) + "' title='" + escapeAttribute(issue.message) + "'>" + escapeHtml(issue.message) + "</a>";
 
       const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
         ? issue.referenceLinks
@@ -1334,9 +1336,12 @@
         ? visibleCountOverride
         : getVisibleIssues().length;
 
-      toggleButton.textContent = body.hidden
+      const toggleButtonLabel = body.hidden
         ? "See all issues (" + visibleCount + " of " + total + ")"
         : "Hide all issues (" + visibleCount + " of " + total + ")";
+      toggleButton.textContent = toggleButtonLabel;
+      toggleButton.setAttribute("title", toggleButtonLabel);
+      toggleButton.setAttribute("aria-label", toggleButtonLabel);
     }
 
     const panel = document.createElement("section");
@@ -1347,20 +1352,20 @@
     panel.innerHTML = [
       "<div class='smlc-headline'>",
       "<div class='smlc-headline-main'>",
-      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "'>See all issues (" + total + ")</button>",
+      "<button type='button' class='smlc-toggle-btn' data-smlc-toggle='1' aria-expanded='false' aria-controls='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' aria-label='See all issues (" + total + ")' title='See all issues (" + total + ")'>See all issues (" + total + ")</button>",
       "<button type='button' class='smlc-refresh-btn m-0 p-0' data-smlc-refresh='1' aria-label='Refresh Tzedek check' title='Refresh Tzedek check'>⟳</button>",
-      "<button type='button' class='smlc-current-issue-btn' data-smlc-current-issue='1' disabled aria-disabled='true' title='Jump to an issue to enable this'>Current Issue</button>",
+      "<button type='button' class='smlc-current-issue-btn' data-smlc-current-issue='1' disabled aria-disabled='true' aria-label='Jump to an issue to enable this' title='Jump to an issue to enable this'>Current Issue</button>",
       "</div>",
       "<div class='smlc-headline-center'>",
       "<a class='smlc-version' href='" + escapeAttribute(repositoryUrl) + "' target='_blank' rel='noopener noreferrer' aria-label='Open Tzedek GitHub repository' title='Click to see the GitHub repo'>v" + escapeHtml(displayVersion) + "</a>",
       "</div>",
       "<div class='smlc-actions'>",
-      "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar'>Close Issues Bar</button>",
-      "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek'>Close Tzedek</button>",
+      "<button type='button' class='smlc-close-btn' data-smlc-close='1' aria-label='Close issues bar' title='Close issues bar'>Close Issues Bar</button>",
+      "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek' title='Close Tzedek'>Close Tzedek</button>",
       "</div>",
       "</div>",
-      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice'>✕</button></div>" : "",
-      blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
+      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "' aria-label='Open the installer page' title='Open the installer page'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice' title='Dismiss update notice'>✕</button></div>" : "",
+      blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' title='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
       "<div id='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' class='smlc-body' hidden>",
       "<div class='smlc-controls'>",
       "<div class='smlc-summary' data-smlc-summary></div>",
@@ -1386,7 +1391,8 @@
 
       summaryHost.innerHTML = levelConfig.map(level => {
         const pressed = activeLevels.has(level.key);
-        return "<button type='button' class='smlc-pill' data-smlc-level='" + escapeHtml(level.key) + "' aria-pressed='" + String(pressed) + "'>" + escapeHtml(level.label) + ": " + level.count + "</button>";
+        const pillLabel = level.label + ": " + level.count;
+        return "<button type='button' class='smlc-pill' data-smlc-level='" + escapeHtml(level.key) + "' aria-pressed='" + String(pressed) + "' aria-label='" + escapeAttribute(pillLabel) + "' title='" + escapeAttribute(pillLabel) + "'>" + escapeHtml(pillLabel) + "</button>";
       }).join("");
 
       const visibleIssues = getVisibleIssues();
