@@ -88,10 +88,11 @@ jobs:
           const fs = require('fs');
           const runnerPath = 'src/runtime/smlComplianceRunner.js';
           const source = fs.readFileSync(runnerPath, 'utf8');
-          const next = source.replace(/const TZEDEK_VERSION = ".*?";/, `const TZEDEK_VERSION = "${process.env.RELEASE_VERSION}";`);
-          if (next === source) {
-            throw new Error('Failed to stamp TZEDEK_VERSION in smlComplianceRunner.js');
+          const versionPattern = /const TZEDEK_VERSION = "[^"]*";/g;
+          if ([...source.matchAll(versionPattern)].length !== 1) {
+            throw new Error('Expected exactly one TZEDEK_VERSION in smlComplianceRunner.js');
           }
+          const next = source.replace(versionPattern, `const TZEDEK_VERSION = "${process.env.RELEASE_VERSION}";`);
           fs.writeFileSync(runnerPath, next);
           EOF
 
