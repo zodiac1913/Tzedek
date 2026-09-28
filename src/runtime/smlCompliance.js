@@ -5191,7 +5191,7 @@ function getSmlcNewWindowLinkLabel(label) {
 
 function getCanonicalReferenceLinks(title, message) {
   const canonicalUrl = getCanonicalReferenceUrl(title, message);
-  return canonicalUrl ? [{ label: getSmlcNewWindowLinkLabel("More Info"), url: canonicalUrl }] : [];
+  return canonicalUrl ? [{ label: "More Info", url: canonicalUrl }] : [];
 }
 
 function getMoreInfoLinks(title, message) {
@@ -5201,7 +5201,7 @@ function getMoreInfoLinks(title, message) {
 
   if (!hasGuideLink) {
     links.push({
-      label: getSmlcNewWindowLinkLabel(links.length > 0 ? "How to Fix" : "More Info"),
+      label: links.length > 0 ? "How to Fix" : "More Info",
       url: guideUrl
     });
   }
@@ -5628,9 +5628,10 @@ function createComplianceAlert(level, title, message, element, options = {}) {
     moreInfoLink.href = linkInfo.url || moreInfoUrl;
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
+    const ariaLabel = getSmlcNewWindowLinkLabel(linkInfo.label || "More Info");
     moreInfoLink.textContent = linkInfo.label || "More Info";
-    moreInfoLink.setAttribute("title", linkInfo.label || "More Info");
-    moreInfoLink.setAttribute("aria-label", linkInfo.label || "More Info");
+    moreInfoLink.setAttribute("title", ariaLabel);
+    moreInfoLink.setAttribute("aria-label", ariaLabel);
     makeSmlcControlUntabbable(moreInfoLink);
     alertDiv.appendChild(moreInfoLink);
   }
