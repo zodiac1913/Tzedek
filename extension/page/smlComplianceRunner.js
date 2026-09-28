@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.08.13.01";
+  const TZEDEK_VERSION = "2026.09.28.01";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -240,6 +240,12 @@
     return /\(opens in new window\)$/i.test(normalizedLabel)
       ? normalizedLabel
       : normalizedLabel + " (opens in new window)";
+  }
+
+  function getIssueActionLabel(label, title, opensInNewWindow = false) {
+    const action = label === "More Info" ? "More Info on" : label;
+    const actionLabel = action + " " + title;
+    return opensInNewWindow ? getNewWindowLinkLabel(actionLabel) : actionLabel;
   }
 
   function activateCurrentIssueModal(backdrop, modal, initialFocusTarget) {
@@ -592,8 +598,9 @@
     const referenceLinks = (Array.isArray(issue.referenceLinks) ? issue.referenceLinks : [])
       .filter((link) => link.url)
       .map((link) => {
-        const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
-        return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+        const linkLabel = link.label || "More Info";
+        const actionLabel = getIssueActionLabel(linkLabel, issue.title, true);
+        return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(actionLabel) + "' title='" + escapeAttribute(actionLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
       })
       .join("");
     const modal = document.createElement("div");
@@ -1128,7 +1135,7 @@
       if (Array.isArray(mappedLinks)) {
         const validLinks = mappedLinks
           .map((link) => ({
-            label: getNewWindowLinkLabel(String(link?.label || "More Info").trim() || "More Info"),
+            label: String(link?.label || "More Info").trim() || "More Info",
             url: String(link?.url || "").trim()
           }))
           .filter((link) => link.url);
@@ -1136,7 +1143,7 @@
       }
     }
 
-    return [{ label: getNewWindowLinkLabel("More Info"), url: getIssueReferenceUrl(title, message) }];
+    return [{ label: "More Info", url: getIssueReferenceUrl(title, message) }];
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -1266,9 +1273,10 @@
     const issueByIndex = new Map(issues.map((issue) => [String(issue.originalIndex), issue]));
     const issuesHtml = function (renderIssues) {
       return renderIssues.map(issue => {
+      const jumpLabel = escapeAttribute(getIssueActionLabel("Jump to location for", issue.title));
       const jumpLink = issue.targetId
-        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>"
-        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='Jump to location' title='Jump to location'>Jump to location</a>";
+        ? "<a class='smlc-jump-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + jumpLabel + "' title='" + jumpLabel + "'>Jump to location</a>"
+        : "<a class='smlc-jump-link' href='#' data-smlc-target='body' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + jumpLabel + "' title='" + jumpLabel + "'>Jump to location</a>";
 
       const messageHtml = issue.targetId
         ? "<a class='smlc-issue-message-link' href='#" + escapeHtml(issue.targetId) + "' data-smlc-target='" + escapeHtml(issue.targetId) + "' data-smlc-issue-index='" + escapeAttribute(String(issue.originalIndex)) + "' aria-label='" + escapeAttribute(issue.message) + "' title='" + escapeAttribute(issue.message) + "'>" + escapeHtml(issue.message) + "</a>"
@@ -1276,11 +1284,12 @@
 
       const referenceLinks = (Array.isArray(issue.referenceLinks) && issue.referenceLinks.length > 0
         ? issue.referenceLinks
-        : [{ label: getNewWindowLinkLabel("More Info"), url: issue.referenceUrl || "" }])
+        : [{ label: "More Info", url: issue.referenceUrl || "" }])
         .filter((link) => link.url)
         .map((link) => {
-          const linkLabel = getNewWindowLinkLabel(link.label || "More Info");
-          return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(linkLabel) + "' title='" + escapeAttribute(linkLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
+          const linkLabel = link.label || "More Info";
+          const actionLabel = getIssueActionLabel(linkLabel, issue.title, true);
+          return "<a class='smlc-reference-link' href='" + escapeAttribute(link.url) + "' target='_blank' rel='noopener noreferrer' aria-label='" + escapeAttribute(actionLabel) + "' title='" + escapeAttribute(actionLabel) + "'>" + escapeHtml(linkLabel) + "</a>";
         })
         .join("");
 

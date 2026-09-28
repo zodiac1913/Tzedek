@@ -45,6 +45,16 @@ Open `http://localhost:4183/demo/` to exercise Tzedek against the intentionally 
 
 The demo is a development surface. It exists to validate the shared runtime and UI outside the extension flow.
 
+## Updating the public Tzedek server
+
+The public code-server workspace serves files directly from `/config/workspace`; it is separate from the CATS intranet. After publishing a **new Tzedek GitHub release** with `Tzedek.zip`, run this in the public server's VS Code terminal:
+
+```sh
+TZEDEK_WEB_ROOT=/config/workspace bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
+```
+
+The script pulls the latest Tzedek release into that workspace, updating only `smlCompliance.js`, `smlComplianceRunner.js`, and `assets/`. It can extract with Perl's `IO::Uncompress::Unzip` when `unzip`, Python, and `bsdtar` are unavailable. The explicit `TZEDEK_WEB_ROOT` also works with the older script already on the server once this updated script is copied there. It leaves the site's `index.html`, installer, `vendor/`, and other local files alone. It records the deployed release in `.tzedek-release` and skips repeat runs. The latest release does not contain local, unreleased changes; publish a new release first. No CATS files or credentials are needed on the public server.
+
 ## Extension Packaging
 
 Run `npm run extension:sync` to copy the shared runtime into `extension/page/` and generate square extension icons in `extension/icons/` from `src/runtime/assets/Righteousness.png`.

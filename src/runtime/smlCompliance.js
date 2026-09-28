@@ -4148,8 +4148,8 @@ function maybeAppendFixButton(alertDiv, level, title, element) {
     const fixButton = document.createElement("button");
     fixButton.type = "button";
     fixButton.className = `btn btn-sm ${alertButtonClass} sml-compliance-fix-btn`;
-    fixButton.setAttribute("title", "Developer Fix");
-    fixButton.setAttribute("aria-label", "Developer Fix");
+    fixButton.setAttribute("title", `Developer Fix for ${normalizedTitle}`);
+    fixButton.setAttribute("aria-label", `Developer Fix for ${normalizedTitle}`);
     setSmlcOwnedHtml(fixButton, "<i class='bi bi-wrench-adjustable-circle-fill' aria-hidden='true'></i> Developer Fix");
     fixButton.addEventListener("click", (event) => {
       stopComplianceControlEvent(event);
@@ -5628,8 +5628,9 @@ function createComplianceAlert(level, title, message, element, options = {}) {
     moreInfoLink.href = linkInfo.url || moreInfoUrl;
     moreInfoLink.target = "_blank";
     moreInfoLink.rel = "noopener noreferrer";
-    const ariaLabel = getSmlcNewWindowLinkLabel(linkInfo.label || "More Info");
-    moreInfoLink.textContent = linkInfo.label || "More Info";
+    const linkLabel = linkInfo.label || "More Info";
+    const ariaLabel = `${linkLabel === "More Info" ? "More Info on" : linkLabel} ${title}`;
+    moreInfoLink.textContent = linkLabel;
     moreInfoLink.setAttribute("title", ariaLabel);
     moreInfoLink.setAttribute("aria-label", ariaLabel);
     makeSmlcControlUntabbable(moreInfoLink);
@@ -5640,8 +5641,8 @@ function createComplianceAlert(level, title, message, element, options = {}) {
   jumpButton.type = "button";
   jumpButton.className = "sml-compliance-more-info";
   jumpButton.textContent = "Jump to location";
-  jumpButton.setAttribute("title", "Jump to location");
-  jumpButton.setAttribute("aria-label", "Jump to location");
+  jumpButton.setAttribute("title", `Jump to location for ${title}`);
+  jumpButton.setAttribute("aria-label", `Jump to location for ${title}`);
   jumpButton.addEventListener("click", (event) => {
     stopComplianceControlEvent(event);
     setInlineAlertExpanded(toggleButton, panesContainer, false);

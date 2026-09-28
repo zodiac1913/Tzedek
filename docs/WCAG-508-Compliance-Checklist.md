@@ -53,6 +53,7 @@ Status: Feature-complete for the currently tracked WCAG/508 checks. ANDI-style p
 - Richer broken-link classification where it improves the finding quality without slowing scans too much
 - Link opens in new window detection
 - Jump-to-location behavior for findings
+- Issue-specific title and accessible names on More Info, How to Fix, Jump to location, and Developer Fix controls; issues-bar external links also announce the new window
 
 ### Buttons and interactive semantics
 
