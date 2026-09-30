@@ -2539,6 +2539,10 @@ function buildInputStateFixSuggestions(title, element) {
         code: `<button type="button" disabled aria-disabled="true">Submit request</button>`
       },
       {
+        heading: "Keep it focusable and describe why it is disabled",
+        code: `<p id="submit-help">Complete all required fields before submitting.</p>\n<button type="button" aria-disabled="true" aria-describedby="submit-help">Submit request</button>`
+      },
+      {
         heading: "Custom disabled control example",
         code: `<div role="button" aria-disabled="true" tabindex="-1">Submit request</div>`
       }

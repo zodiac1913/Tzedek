@@ -446,6 +446,7 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     reviewChecklist: [
       "Prefer the native disabled attribute on button, input, select, and textarea when the control should be unavailable and removed from sequential focus order.",
       "If the control must stay focusable so users can reach linked error or help text, use aria-disabled=\"true\", cancel activation in script, and keep the disabled visual styling.",
+      "Put aria-describedby on the disabled control itself (not on its label), pointing to an element id that explains why it is unavailable.",
       "Do not style a control as disabled while leaving it fully clickable and without disabled or aria-disabled."
     ]
   },
