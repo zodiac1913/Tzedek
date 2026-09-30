@@ -15,7 +15,7 @@ For maintainers, publish a new version from GitHub Actions with the `Release Ext
 
 Note: Chromium requires numeric manifest versions without leading zeroes. The workflow keeps your exact `YYYY.MM.DD.xx` string as the release name and `version_name`, and writes a normalized manifest `version` such as `2026.7.29.1` inside the packaged extension.
 
-The shared manifest declares both `background.service_worker` and `background.scripts` so current Chromium browsers use the service worker and Firefox 121+ uses the background script fallback from the same package.
+The shared manifest uses Manifest V3 with `background.service_worker` for Chromium and Firefox 121+ (see `browser_specific_settings.gecko.strict_min_version`).
 
 The Firefox `.xpi` artifact is an unsigned package produced for Firefox packaging workflows. Persistent Firefox installation outside temporary developer loading still requires Mozilla signing.
 

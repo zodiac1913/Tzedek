@@ -18,9 +18,6 @@
     "default_title": "Run Tzedek"
   },
   "background": {
-    "scripts": [
-      "service-worker.js"
-    ],
     "service_worker": "service-worker.js"
   },
   "browser_specific_settings": {
