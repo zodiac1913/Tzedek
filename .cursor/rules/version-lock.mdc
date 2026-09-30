@@ -1,0 +1,32 @@
+---
+description: Keep bookmarklet and extension on the same release version
+alwaysApply: true
+---
+
+# Version lock: bookmarklet = extension
+
+Tzedek has one release version. The bookmarklet runtime and the browser extension must never disagree.
+
+## Source of truth
+
+`package.json` → `releaseVersion` (format `YYYY.MM.DD.xx`, e.g. `2026.09.30.03`)
+
+That exact string must also appear in:
+
+- `extension/manifest.json` → `version_name`
+- `extension/manifest.json` → `version` as Chromium-normalized digits without leading zeros (e.g. `2026.9.30.3`)
+- `src/runtime/smlComplianceRunner.js` → `const TZEDEK_VERSION = "..."` (bookmarklet/extension UI version)
+
+Then run `npm run extension:sync` and `npm run demo:sync` so `extension/page/` and `demo/page/` copies match.
+
+## When bumping a version
+
+1. Update `package.json` `version` and `releaseVersion`
+2. Run `npm run version:stamp` (writes manifest + runner, then syncs)
+3. Run `npm run version:verify` and fix any mismatch before committing
+4. Do **not** leave CI as the only place that stamps versions into the working tree
+
+## Never
+
+- Ship or load an unpacked `extension/` whose `version_name` differs from `TZEDEK_VERSION`
+- Update only `package.json` or only the GitHub release zip and leave this repo on an older stamp

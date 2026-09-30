@@ -9,6 +9,8 @@
     "import:cats": "node scripts/import-from-cats.cjs",
     "demo:sync": "node scripts/sync-demo-page.cjs",
     "extension:sync": "node scripts/sync-extension-page.cjs",
+    "version:stamp": "node scripts/stamp-release-version.cjs",
+    "version:verify": "node scripts/verify-version-lock.cjs",
     "cats:sync": "npm --prefix ../cms-dotnet-cats-source run tzedek:prepare-publish",
     "verify:cats": "npm --prefix ../cms-dotnet-cats-source run tzedek:verify-sync"
   }
