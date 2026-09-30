@@ -2540,8 +2540,8 @@ function buildInputStateFixSuggestions(title, element) {
   if (title === "Disabled State Not Announced") {
     return [
       {
-        heading: "Expose the disabled state programmatically",
-        code: `<button type="button" disabled aria-disabled="true">Submit request</button>`
+        heading: "Prefer native disabled on real buttons",
+        code: `<button type="button" disabled>Submit request</button>`
       },
       {
         heading: "Keep it focusable and describe why it is disabled",
@@ -2549,7 +2549,7 @@ function buildInputStateFixSuggestions(title, element) {
       },
       {
         heading: "Custom disabled control example",
-        code: `<div role="button" aria-disabled="true" tabindex="-1">Submit request</div>`
+        code: `<div role="button" class="is-disabled" aria-disabled="true" tabindex="-1">Submit request</div>`
       }
     ];
   }
@@ -4249,7 +4249,7 @@ function getPlainLanguageIssueDescription(title) {
     "Vague Link Text": "This link text is too generic, like 'click here' or 'read more.' It does not say where the link goes.",
     "Ambiguous Link Text": "This link text does not make sense by itself. If users hear it out of context, they still will not know what it means.",
     "Duplicate Link Text, Different Destination": "These links sound the same, but they go to different places. Users can have trouble knowing which one to choose.",
-    "Disabled State Not Announced": "This control looks disabled, but assistive tools may not be told that it is disabled.",
+    "Disabled State Not Announced": "This control looks disabled, but assistive tools may not be told that it is disabled. Native button disabled is enough; custom controls need aria-disabled.",
     "Form Should Be Labeled": "This form has no accessible name. Label the form with aria-label, aria-labelledby, or a heading inside it so users know what the form is for.",
     "Link Opens in New Window": "This link opens a new tab or window. If the page does not warn the user, they can lose their place and get confused.",
     "Table Missing Caption": "This table does not say what the table is about. Add a caption so users know the table's topic before reading the cells.",
@@ -6068,12 +6068,20 @@ export class smlCompliance {
           getAccessibleNameMismatchMessage(btn, accessibleNameOverride), btn);
       }
 
-      // Check for disabled state accessibility
-      if (btn.hasAttribute("disabled")) {
-        if (!btn.hasAttribute("aria-disabled")) {
-          this.addAlert("warning", "Disabled State Not Announced", 
-            `Disabled button should have aria-disabled="true"`, btn);
-        }
+      // Native disabled already exposes the disabled state to assistive technology.
+      // Flag custom button-like controls that look disabled without aria-disabled.
+      const isNativeDisableableControl = btn instanceof HTMLButtonElement
+        || (btn instanceof HTMLInputElement && ["button", "submit", "reset"].includes(String(btn.type || "").toLowerCase()));
+      const hasNativeDisabled = isNativeDisableableControl && (btn.hasAttribute("disabled") || btn.disabled === true);
+      const ariaDisabledValue = String(btn.getAttribute("aria-disabled") || "").trim().toLowerCase();
+      const hasAriaDisabledTrue = ariaDisabledValue === "true";
+      const classAndState = `${btn.className || ""} ${btn.getAttribute("data-state") || ""} ${btn.getAttribute("data-disabled") || ""}`;
+      const looksDisabled = /\b(disabled|is-disabled|btn-disabled|disabled-btn)\b/i.test(classAndState)
+        || String(btn.getAttribute("data-disabled") || "").trim().toLowerCase() === "true";
+
+      if (!hasNativeDisabled && looksDisabled && !hasAriaDisabledTrue) {
+        this.addAlert("warning", "Disabled State Not Announced",
+          `This control looks disabled but is missing aria-disabled="true"`, btn);
       }
 
       // Icon-only buttons should have aria-label

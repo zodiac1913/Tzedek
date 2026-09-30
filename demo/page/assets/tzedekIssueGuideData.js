@@ -439,16 +439,17 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ]
   },
   "Disabled State Not Announced": {
-    overview: "An interactive control looks unavailable or disabled, but it lacks the markup assistive technologies need to announce that disabled state. Sighted users see a greyed-out control; screen reader users may still treat it as active.",
+    overview: "An interactive control looks unavailable or disabled, but it lacks the markup assistive technologies need to announce that disabled state. Native HTML buttons with the disabled attribute are already announced; this finding targets custom or styled controls that only look disabled.",
     whyItMatters: [
       "Screen reader users may try to activate a control that does nothing, with no clear explanation that it is inactive.",
       "Custom and styled controls often look disabled in CSS but forget the matching programmatic state.",
       "WCAG 4.1.2 (Name, Role, Value) expects the disabled state to be exposed when the control presents as unavailable."
     ],
     reviewChecklist: [
-      "Prefer the native disabled attribute on button, input, select, and textarea when the control should be unavailable and removed from sequential focus order.",
+      "Prefer the native disabled attribute on button, input, select, and textarea. That alone is enough for assistive technology.",
       "If the control must stay focusable so users can reach linked error or help text, use aria-disabled=\"true\", cancel activation in script, and keep the disabled visual styling.",
       "Put aria-describedby on the disabled control itself (not on its label), pointing to an element id that explains why it is unavailable.",
+      "For custom role=\"button\" controls, expose aria-disabled=\"true\" when the control looks disabled; the disabled attribute is ignored on non-form elements.",
       "Do not style a control as disabled while leaving it fully clickable and without disabled or aria-disabled."
     ]
   },

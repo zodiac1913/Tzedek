@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Tzedek Accessibility Checker",
-  "version": "2026.9.30.4",
-  "version_name": "2026.09.30.04",
+  "version": "2026.9.30.5",
+  "version_name": "2026.09.30.05",
   "description": "Tzedek finds accessibility issues quickly. A product of the Small-Mighty-Light framework.",
   "icons": {
     "16": "icons/icon-16.png",
