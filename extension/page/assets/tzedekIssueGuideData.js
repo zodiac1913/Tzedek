@@ -320,16 +320,18 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ]
   },
   "Form Should Be Labeled": {
-    overview: "This finding appears when a form region has no dependable accessible name describing what the form is for.",
+    overview: "This finding appears when a <form> has no dependable accessible name. Individual fields may be labeled, but the form region itself still has no name describing its purpose — for example an AI question box, search form, or login form.",
     whyItMatters: [
-      "Users may understand the individual fields but still not know the purpose of the form as a whole.",
-      "Named forms are easier to find in assistive technology region lists and complex application screens.",
-      "A form label helps distinguish one form from another when a page has more than one input workflow."
+      "Screen reader users can jump by form or landmark and need a name that says what the form is for.",
+      "On pages with several forms, unlabeled forms are hard to tell apart.",
+      "A labeled form helps people understand the task before they fill in the fields."
     ],
     reviewChecklist: [
-      "Give the form an accessible name with aria-label or aria-labelledby when the purpose is not already obvious.",
-      "Use the actual task name, such as employee search, password reset, or benefits enrollment.",
-      "Avoid generic names like 'form' or 'submit form'."
+      "Put aria-label on the form itself with the task name, such as \"Ask AI a question\" or \"Search employees\".",
+      "Or put aria-labelledby on the form pointing at a visible heading or legend that names the form.",
+      "Or include a real h1, h2, or h3 inside the form that states the form purpose.",
+      "Do not rely only on a labeled textbox inside an unnamed form — the form region still needs its own name.",
+      "Avoid generic names like \"form\" or \"submit\"."
     ]
   },
   "Grouped Choices Missing Fieldset": {

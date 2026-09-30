@@ -176,7 +176,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Anchor Uses Button Role": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a",
   "Disabled State Not Announced": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-disabled",
   "Icon-Only Button Missing Label": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Text_labels_and_names",
-  "Form Should Be Labeled": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
+  "Form Should Be Labeled": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-label",
   "Grouped Choices Missing Fieldset": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset",
   "Input Missing Label": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/label",
   "Search Input Missing Accessible Name": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/searchbox_role",
@@ -1846,10 +1846,15 @@ function toReadableFormLabelText(form) {
 
 function buildFormLabelFixSuggestions(element) {
   const formLabel = toReadableFormLabelText(element);
+  const headingId = "form-heading";
   return [
     {
-      heading: "HTML form example",
-      code: `<form aria-label="${escapeAttribute(formLabel)}">\n  ...\n</form>`
+      heading: "Name the form with aria-label",
+      code: `<form aria-label="${escapeAttribute(formLabel)}">\n  <label for="ai-compose">Your question</label>\n  <textarea id="ai-compose" name="question"></textarea>\n  <button type="submit">Ask</button>\n</form>`
+    },
+    {
+      heading: "Point the form at a visible heading",
+      code: `<form aria-labelledby="${escapeAttribute(headingId)}">\n  <h2 id="${escapeAttribute(headingId)}">${escapeHtml(formLabel)}</h2>\n  <label for="ai-compose">Your question</label>\n  <textarea id="ai-compose" name="question"></textarea>\n</form>`
     },
     {
       heading: "Razor Html.BeginForm example",
@@ -4245,6 +4250,7 @@ function getPlainLanguageIssueDescription(title) {
     "Ambiguous Link Text": "This link text does not make sense by itself. If users hear it out of context, they still will not know what it means.",
     "Duplicate Link Text, Different Destination": "These links sound the same, but they go to different places. Users can have trouble knowing which one to choose.",
     "Disabled State Not Announced": "This control looks disabled, but assistive tools may not be told that it is disabled.",
+    "Form Should Be Labeled": "This form has no accessible name. Label the form with aria-label, aria-labelledby, or a heading inside it so users know what the form is for.",
     "Link Opens in New Window": "This link opens a new tab or window. If the page does not warn the user, they can lose their place and get confused.",
     "Table Missing Caption": "This table does not say what the table is about. Add a caption so users know the table's topic before reading the cells.",
     "Table Missing thead": "This table has no clear header section. That makes the table structure harder for browsers and assistive tools to understand.",
@@ -6086,9 +6092,12 @@ export class smlCompliance {
     const forms = getAuditCandidateElements("form");
     
     for (const form of forms) {
-      if (!form.hasAttribute("aria-label") && !form.querySelector("h1, h2, h3")) {
-        this.addAlert("info", "Form Should Be Labeled", 
-          `Form should have a label via aria-label or heading`, form);
+      const hasAriaLabel = String(form.getAttribute("aria-label") || "").trim().length > 0;
+      const hasAriaLabelledby = getReferencedTextContent(form.getAttribute("aria-labelledby")).trim().length > 0;
+      const hasHeading = Boolean(form.querySelector("h1, h2, h3"));
+      if (!hasAriaLabel && !hasAriaLabelledby && !hasHeading) {
+        this.addAlert("info", "Form Should Be Labeled",
+          `Form should have a label via aria-label, aria-labelledby, or heading`, form);
       }
     }
 
