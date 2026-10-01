@@ -2723,7 +2723,7 @@ function buildLiveRegionFixSuggestions(title, element) {
 
 function buildSemanticControlFixSuggestions(title, element) {
   if (title === "Accessible Name Does Not Include Visible Label") {
-    const visibleText = escapeHtml(getVisibleControlText(element) || "Visible control text");
+    const visibleText = escapeHtml(getVisibleControlTextExcludingScreenReaderOnly(element) || "Visible control text");
     const overrideDetails = getAccessibleNameOverrideDetails(element);
     const mismatchContext = getAccessibleNameMismatchContext(element);
     if (overrideDetails?.sourceAttribute === "aria-labelledby") {
@@ -4500,6 +4500,12 @@ function getVisibleControlTextExcludingScreenReaderOnly(element) {
     .filter((node) => isScreenReaderOnlyElement(node))
     .forEach((node) => node.remove());
 
+  clone.querySelectorAll("[aria-label]").forEach((node) => {
+    if (node !== clone) {
+      node.remove();
+    }
+  });
+
   return String(clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
@@ -4637,8 +4643,9 @@ function getAccessibleNameOverrideDetails(element) {
   const usesOwnVisibleText = element.tagName === "SUMMARY"
     || ["button", "submit", "reset"].includes(inputType)
     || ["button", "link", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "treeitem", "gridcell"].includes(role);
-  let visibleText = getVisibleControlText(element);
-  if (usesOwnVisibleText) {
+  // Screen-reader-only text (e.g. disabled excuses) is not on screen, so it must not count as the visible label.
+  let visibleText = getVisibleControlTextExcludingScreenReaderOnly(element);
+  if (usesOwnVisibleText && element instanceof HTMLInputElement) {
     visibleText = getVisibleNameBearingText(element);
   } else if (isInputControl) {
     visibleText = getAssociatedLabelText(element);

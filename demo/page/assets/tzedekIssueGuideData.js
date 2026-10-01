@@ -94,16 +94,36 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ]
   },
   "Accessible Name Does Not Include Visible Label": {
-    overview: "This finding appears when the words users see on a control do not match the words assistive technology announces.",
+    overview: "This finding appears when the words users see on a control do not match the words assistive technology announces. The spoken name has to include the same visible words, in the same order, at the start of the name.",
     whyItMatters: [
       "People often talk about controls using the visible text they can see on the screen.",
-      "If the screen reader name leaves those visible words out, voice control and screen reader users can have trouble finding or activating the same control.",
-      "Keeping the visible words inside the accessible name reduces confusion for mixed-input teams and users."
+      "If aria-label replaces those words instead of repeating them, screen reader and voice-control users cannot find the control by the label everyone else sees.",
+      "A custom role=\"button\" does not get its name from nearby text. It needs an accessible name that still starts with the words printed on the control."
     ],
     reviewChecklist: [
-      "Compare the visible label, button text, or link text to the accessible name.",
-      "Keep the visible words intact inside aria-label or aria-labelledby output.",
-      "Only add extra context after the visible words, not instead of them."
+      "Read the words actually painted on the control. Ignore nearby help text that is not part of that control.",
+      "Compare those words with aria-label or the text referenced by aria-labelledby.",
+      "The accessible name must start with the same visible words. Extra role or state context can come after them.",
+      "Do not use a shorter aria-label that drops part of the visible label, and do not use a different phrase in its place."
+    ],
+    howToFix: [
+      "Prefer a native button so the visible text is the accessible name.",
+      "If the control stays a custom role=\"button\", set aria-label to the same visible words, then add any extra context after those words.",
+      "If the visible words already live in another element, point aria-labelledby at that element first, then at any extra context."
+    ],
+    examples: [
+      {
+        heading: "Native button: the visible words are the name",
+        code: "<button type=\"button\">Set as default</button>"
+      },
+      {
+        heading: "Custom button: start aria-label with the same visible words",
+        code: "<div role=\"button\" tabindex=\"0\" aria-label=\"Set as default\">Set as default</div>"
+      },
+      {
+        heading: "Extra context goes after the visible words, not instead of them",
+        code: "<div role=\"button\" tabindex=\"0\" aria-label=\"Set as default, only the internal database is available\">\n  Set as default\n</div>"
+      }
     ]
   },
   "Link Missing Text": {

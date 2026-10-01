@@ -232,11 +232,22 @@
         reviewList.appendChild(li);
       }
 
-      if (fixContent) {
+      const howToFix = Array.isArray(guideDetails?.howToFix) ? guideDetails.howToFix : [];
+      if (fixContent || howToFix.length > 0) {
         document.getElementById("fixSection").hidden = false;
-        document.getElementById("fixDescription").textContent = fixContent.description || "";
+        document.getElementById("fixDescription").textContent = fixContent?.description || "";
+        if (howToFix.length > 0) {
+          const howToFixList = document.createElement("ul");
+          for (const item of howToFix) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            howToFixList.appendChild(li);
+          }
+          document.getElementById("fixSection").insertBefore(howToFixList, document.getElementById("fixSnippets"));
+        }
         const fixSnippets = document.getElementById("fixSnippets");
-        for (const snippet of fixContent.snippets || []) {
+        const guideExamples = Array.isArray(guideDetails?.examples) ? guideDetails.examples : [];
+        for (const snippet of [...guideExamples, ...(fixContent?.snippets || [])]) {
           const wrapper = document.createElement("div");
           wrapper.className = "guide-snippet";
 
