@@ -13,6 +13,16 @@ Tagline:
 
 > A product of the Small-Mighty-Light framework.
 
+## Install
+
+- [Download the Chrome and Edge extension](https://github.com/zodiac1913/Tzedek/releases/latest/download/Tzedek.zip)
+- [Download the Firefox package](https://github.com/zodiac1913/Tzedek/releases/latest/download/Tzedek-Firefox.xpi)
+- [Drag the bookmarklet from the installer](https://zodiac1913.github.io/Tzedek/demo/page/compliance-bookmarklet.html)
+
+Unzip `Tzedek.zip`, then load that folder as an unpacked extension in Chrome or Edge. The Firefox package still needs Mozilla signing for a normal install.
+
+Open the installer and drag the Tzedek Bookmarklet button to the bookmarks bar. GitHub's README cannot hold that `javascript:` link, so the drag target lives on the hosted installer page.
+
 ## Layout
 
 - `src/`: shared runtime source
