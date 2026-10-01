@@ -14,7 +14,7 @@ Tagline:
 
 Tzedek must support two delivery paths built from one shared runtime:
 
-- Chromium extension for Edge and Chrome
+- Chromium extension for Edge and Chrome (Also Firefox)
 - bookmarklet for ANDI-style usage
 
 The extension and bookmarklet should behave as similarly as possible.
@@ -78,16 +78,13 @@ Current observations from the runtime and parity fixtures:
    Not a direct standalone runtime import right now, but it still influences some color-replacement guidance and parity behavior.
 
 2. `sml.js`
-   Potentially important for Small-Mighty-Light custom elements and parity fixtures such as `sml-page`, `cc-container`, and `sml-auto-complete`. Even if Tzedek should run on arbitrary pages without it, keep it in mind for fixture parity and framework page support.
+   Not imported by the standalone runtime, and no fixture in this repo loads it. The runtime only recognizes the tags `sml-page` and `sml-form-field`. `sml-auto-complete` does not appear. Keep those selectors for Small-Mighty-Light pages; core checks do not need `sml.js`.
 
 3. `sml.css`
    Not currently imported by the standalone runtime, but it is referenced in some suggestion text and may matter for realistic style guidance or parity demos.
 
 4. `site.css`
    No current direct runtime dependency has been confirmed, but do not assume it is irrelevant until visual or fixture parity has been checked.
-
-5. Bootstrap-like classes
-   The imported runtime uses many Bootstrap-style class names such as `btn`, `alert`, and `modal`. Long term, Tzedek should either carry the minimal styling it needs or stop relying on ambient site CSS.
 
 ## SML Retention Policy
 

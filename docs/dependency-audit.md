@@ -20,7 +20,7 @@ Goal:
 Current conclusion:
 
 1. Tzedek does not currently show evidence of a hard direct JavaScript dependency on `sml.js` for core execution.
-2. Tzedek does recognize Small-Mighty-Light page structures and wrappers through selectors such as `cc-container`, `sml-page`, and `sml-form-field`.
+2. Tzedek does recognize Small-Mighty-Light page structures and wrappers through selectors such as `sml-page` and `sml-form-field`.
 3. Tzedek currently emits Bootstrap or CatsStrap-style class names in its generated UI, so it still benefits from external theme CSS unless those classes are replaced or inlined.
 4. Tzedek references `sml.css` and CatsStrap-derived replacements in user guidance text for contrast suggestions, even where it does not directly import those files.
 5. `site.css` is not currently confirmed as a direct runtime dependency.
@@ -29,8 +29,8 @@ Current conclusion:
 
 Confirmed selectors in the imported runtime:
 
-- `containerSelector: "cc-container, sml-page"`
-- jump target lookup includes `cc-container, sml-page`
+- `containerSelector: "sml-page"`
+- jump target lookup includes `sml-page`
 - wrapper lookup uses `closest("sml-form-field, .form-floating, .form-group, .modal-header, td, th, li")`
 
 Interpretation:
@@ -143,7 +143,7 @@ Implication:
 
 ### Keep
 
-1. structural SML selectors such as `cc-container`, `sml-page`, and `sml-form-field`
+1. structural SML selectors such as `sml-page` and `sml-form-field`
 2. contrast suggestion support for Bootstrap, SML, and legacy theme replacements
 3. the current imported smoke asset and self-owned runtime styles
 

@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.09.30.05";
+  const TZEDEK_VERSION = "2026.10.01.01";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -749,7 +749,7 @@
   }
 
   function getPrimaryJumpTarget() {
-    return document.querySelector("main, [role='main'], #maincontent, #mainContent, #main, #content, #pageContentWrapper, #page-content-wrapper, cc-container, sml-page")
+    return document.querySelector("main, [role='main'], #maincontent, #mainContent, #main, #content, #pageContentWrapper, #page-content-wrapper, sml-page")
       || document.body
       || document.documentElement;
   }

@@ -1,3 +1,3 @@
 Shared runtime source lives here.
 
-For now this repo imports the working SMLC runtime from CATS into `src/runtime/` so the standalone project can move independently.
+This was originally a repo that imported the working SMLC(Small, Mighty, and Light Compliance components) runtime from CMS CATS into `src/runtime/`. Now it is its own repo with a bookmarklet or extension.

@@ -5677,7 +5677,7 @@ export class smlCompliance {
     this.cfg = {
       level: "aa", // "aa" or "aaa"
       enforceMode: false,
-      containerSelector: "cc-container, sml-page",
+      containerSelector: "sml-page",
       showAlerts: true,
       checkBrokenLinks: true,
       brokenLinkTimeoutMs: 5000,
