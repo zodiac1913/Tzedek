@@ -37,3 +37,9 @@ test("Standalone pages ship a same-origin script CSP", () => {
     assert.doesNotMatch(csp, /script-src[^;]*unsafe-(inline|eval)/, file);
   }
 });
+
+test("Plain-text finding messages keep literal tag names like <nav>", () => {
+  const runner = read("src/runtime/smlComplianceRunner.js");
+  assert.match(runner, /alert\.messageHtml === true\s*\?\s*stripHtml\(alert\.message/);
+  assert.match(read("src/runtime/smlCompliance.js"), /Page should have <nav> or role="navigation"/);
+});

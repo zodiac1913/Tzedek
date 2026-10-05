@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.10.05.06";
+  const TZEDEK_VERSION = "2026.10.05.07";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -1061,7 +1061,10 @@
     return (Array.isArray(alerts) ? alerts : []).map((alert, index) => {
       const level = (alert.level || "info").toLowerCase();
       const title = alert.title || "Issue";
-      const message = stripHtml(alert.message || "");
+      // Only messageHtml alerts carry markup; plain messages may quote tags like <nav> literally.
+      const message = alert.messageHtml === true
+        ? stripHtml(alert.message || "")
+        : String(alert.message || "").trim();
       return {
         id: "tzedek-smlc-issue-" + index,
         originalIndex: index,
