@@ -14,7 +14,10 @@ const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, "extension", "ma
 const runnerPaths = [
   "src/runtime/smlComplianceRunner.js",
   "extension/page/smlComplianceRunner.js",
-  "demo/page/smlComplianceRunner.js"
+  "demo/page/smlComplianceRunner.js",
+  "bookmarklet/compliance-bookmarklet.html",
+  "extension/page/compliance-bookmarklet.html",
+  "demo/page/compliance-bookmarklet.html"
 ];
 
 const errors = [];

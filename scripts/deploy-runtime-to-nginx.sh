@@ -28,6 +28,7 @@ extract_zip() {
         my $name = $zip->getHeaderInfo->{Name};
         if (($name eq "page/smlCompliance.js"
             || $name eq "page/smlComplianceRunner.js"
+            || $name eq "page/compliance-bookmarklet.html"
             || $name =~ m{\Apage/assets/})
             && $name !~ m{(?:\A|/)\.\.?(?:/|\z)}
             && $name !~ m{/\z}) {
@@ -67,7 +68,7 @@ if [ -z "$latest_tag" ]; then
 fi
 
 current_tag="$(cat "$STAMP_FILE" 2>/dev/null || true)"
-if [ "$latest_tag" = "$current_tag" ]; then
+if [ "$latest_tag" = "$current_tag" ] && [ "${TZEDEK_FORCE_DEPLOY:-0}" != "1" ]; then
   echo "Already serving $latest_tag"
   exit 0
 fi
@@ -80,14 +81,14 @@ curl -fsSL -o "$work_dir/Tzedek.zip" \
 extract_zip "$work_dir/Tzedek.zip" "$work_dir/unpacked"
 
 runtime_dir="$work_dir/unpacked/page"
-if [ ! -f "$runtime_dir/smlComplianceRunner.js" ] || [ ! -f "$runtime_dir/smlCompliance.js" ] || [ ! -d "$runtime_dir/assets" ]; then
-  echo "Release $latest_tag is missing runtime files or assets, refusing to deploy" >&2
+if [ ! -f "$runtime_dir/smlComplianceRunner.js" ] || [ ! -f "$runtime_dir/smlCompliance.js" ] || [ ! -f "$runtime_dir/compliance-bookmarklet.html" ] || [ ! -d "$runtime_dir/assets" ]; then
+  echo "Release $latest_tag is missing runtime files, installer, or assets, refusing to deploy" >&2
   exit 1
 fi
 
-# Preserve the server's index.html, installer, vendor/, and other local files.
+# The installer belongs to the release; preserve index.html, vendor/, and other local files.
 mkdir -p "$WEB_ROOT/assets"
-cp "$runtime_dir/smlComplianceRunner.js" "$runtime_dir/smlCompliance.js" "$WEB_ROOT/"
+cp "$runtime_dir/smlComplianceRunner.js" "$runtime_dir/smlCompliance.js" "$runtime_dir/compliance-bookmarklet.html" "$WEB_ROOT/"
 cp -R "$runtime_dir/assets/." "$WEB_ROOT/assets/"
 
 printf '%s\n' "$latest_tag" >"$STAMP_FILE"

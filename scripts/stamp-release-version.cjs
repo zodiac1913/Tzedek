@@ -38,6 +38,13 @@ fs.writeFileSync(
 );
 console.log(`Stamped src/runtime/smlComplianceRunner.js → ${releaseVersion}`);
 
+const installerPath = path.join(repoRoot, "bookmarklet", "compliance-bookmarklet.html");
+const installerSource = fs.readFileSync(installerPath, "utf8");
+if ([...installerSource.matchAll(versionPattern)].length !== 1) {
+  throw new Error("Expected exactly one TZEDEK_VERSION in the bookmarklet installer");
+}
+fs.writeFileSync(installerPath, installerSource.replace(versionPattern, `const TZEDEK_VERSION = "${releaseVersion}";`));
+
 for (const script of ["extension:sync", "demo:sync"]) {
   execFileSync("npm", ["run", script], { cwd: repoRoot, stdio: "inherit" });
 }

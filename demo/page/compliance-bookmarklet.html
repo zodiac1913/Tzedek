@@ -212,6 +212,7 @@
 
     <script>
       (function () {
+        const TZEDEK_VERSION = "2026.10.05.03";
         const runtimeBaseUrl = new URL("./", window.location.href).href;
         const config = {
           moduleUrl: new URL("smlCompliance.js", runtimeBaseUrl).href,
@@ -219,7 +220,7 @@
           bootstrapIconsHref: "",
           repositoryUrl: "https://github.com/zodiac1913/Tzedek"
         };
-        const bookmarkletCode = "javascript:(()=>{const base=" + JSON.stringify(runtimeBaseUrl) + ";const cfg=" + JSON.stringify(config) + ";window.TzedekConfig={...(window.TzedekConfig||{}),...cfg};document.getElementById('tzedek-bookmarklet-loader')?.remove();const script=document.createElement('script');script.id='tzedek-bookmarklet-loader';script.src=new URL('smlComplianceRunner.js?t='+Date.now(),base).href;script.dataset.moduleUrl=cfg.moduleUrl;document.documentElement.appendChild(script);})();";
+        const bookmarkletCode = "javascript:(()=>{const base=" + JSON.stringify(runtimeBaseUrl) + ";const cfg=" + JSON.stringify(config) + ";window.TzedekConfig={...(window.TzedekConfig||{}),...cfg};document.getElementById('tzedek-bookmarklet-loader')?.remove();const script=document.createElement('script');script.id='tzedek-bookmarklet-loader';script.src=new URL('smlComplianceRunner.js?t='+Date.now()+'&bookmarkletVersion=" + TZEDEK_VERSION + "',base).href;script.dataset.moduleUrl=cfg.moduleUrl;document.documentElement.appendChild(script);})();";
 
         const bookmarkletLink = document.getElementById("bookmarkletLink");
         const bookmarkletCodeField = document.getElementById("bookmarkletCode");

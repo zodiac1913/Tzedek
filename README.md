@@ -65,7 +65,16 @@ The public server's code-server workspace serves files directly from `/config/wo
 TZEDEK_WEB_ROOT=/config/workspace bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
 ```
 
-The script requests the latest Tzedek release and installs its runtime into that workspace, updating only `smlCompliance.js`, `smlComplianceRunner.js`, and `assets/`. It can extract with Perl's `IO::Uncompress::Unzip` when `unzip`, Python, and `bsdtar` are unavailable. The explicit `TZEDEK_WEB_ROOT` also works with the older script already on the server once this updated script is copied there. It leaves the site's `index.html`, installer, `vendor/`, and other local files alone. It records the deployed release in `.tzedek-release` and skips repeat runs. A server pull gets a published release, not local, unreleased changes; publish a new release first. No CATS files or credentials are needed on the public server.
+The script installs the released runtime, `assets/`, and `compliance-bookmarklet.html`. The installer is now release-managed, replacing the custom server copy, and its generated bookmarklet URL carries the release version. It preserves `index.html`, `vendor/`, and other local files. It can extract with Perl's `IO::Uncompress::Unzip` when other ZIP extractors are unavailable. The `.tzedek-release` stamp skips repeat deployments; set `TZEDEK_FORCE_DEPLOY=1` to reinstall the same release. No CATS files or credentials are needed.
+
+**One-time upgrade:** the old server script skips the installer. Replace it before deploying:
+
+```sh
+curl -fL https://raw.githubusercontent.com/zodiac1913/Tzedek/main/scripts/deploy-runtime-to-nginx.sh -o /config/workspace/scripts/deploy-runtime-to-nginx.sh
+TZEDEK_FORCE_DEPLOY=1 bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
+```
+
+Then reload `/tzedek/compliance-bookmarklet.html` without the browser cache. A custom root `index.html` is still preserved and may contain a separate, stale bookmarklet generator; use the release-managed installer above.
 
 If a separate `cms.gov` site is added later, document and validate its deployment flow independently rather than treating CATS as an intermediary.
 

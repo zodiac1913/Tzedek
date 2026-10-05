@@ -7,6 +7,27 @@ const { test } = require("node:test");
 const root = path.resolve(__dirname, "..");
 const releaseVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).releaseVersion;
 
+test("Installer generates a launcher with the current release version", () => {
+  const html = fs.readFileSync(path.join(root, "bookmarklet/compliance-bookmarklet.html"), "utf8");
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const context = vm.createContext({ URL, window: { location: { href: "https://tzedek.example/tzedek/compliance-bookmarklet.html" } } });
+  const end = script.indexOf("        const bookmarkletLink =");
+  assert.ok(end > 0);
+  vm.runInContext(script.slice(0, end) + "globalThis.code = bookmarkletCode; })();", context);
+  assert.ok(context.code.includes(`bookmarkletVersion=${releaseVersion}`));
+  let loadedScript;
+  context.window.TzedekConfig = {};
+  context.document = {
+    getElementById: () => null,
+    createElement: () => ({ dataset: {} }),
+    documentElement: { appendChild: script => { loadedScript = script; } }
+  };
+  vm.runInContext(context.code.replace(/^javascript:/, ""), context);
+  const url = new URL(loadedScript.src);
+  assert.equal(url.searchParams.get("bookmarkletVersion"), releaseVersion);
+  assert.equal(url.pathname, "/tzedek/smlComplianceRunner.js");
+});
+
 // Expose the runner's helpers without starting an audit or requiring a browser DOM.
 function loadRunner(relativePath, bookmarkletVersion) {
   const source = fs.readFileSync(path.join(root, relativePath), "utf8");

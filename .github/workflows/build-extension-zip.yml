@@ -86,14 +86,15 @@ jobs:
         run: |
           node <<'EOF'
           const fs = require('fs');
-          const runnerPath = 'src/runtime/smlComplianceRunner.js';
-          const source = fs.readFileSync(runnerPath, 'utf8');
           const versionPattern = /const TZEDEK_VERSION = "[^"]*";/g;
-          if ([...source.matchAll(versionPattern)].length !== 1) {
-            throw new Error('Expected exactly one TZEDEK_VERSION in smlComplianceRunner.js');
+          for (const filePath of ['src/runtime/smlComplianceRunner.js', 'bookmarklet/compliance-bookmarklet.html']) {
+            const source = fs.readFileSync(filePath, 'utf8');
+            if ([...source.matchAll(versionPattern)].length !== 1) {
+              throw new Error(`Expected exactly one TZEDEK_VERSION in ${filePath}`);
+            }
+            const next = source.replace(versionPattern, `const TZEDEK_VERSION = "${process.env.RELEASE_VERSION}";`);
+            fs.writeFileSync(filePath, next);
           }
-          const next = source.replace(versionPattern, `const TZEDEK_VERSION = "${process.env.RELEASE_VERSION}";`);
-          fs.writeFileSync(runnerPath, next);
           EOF
 
       - name: Sync extension bundle
