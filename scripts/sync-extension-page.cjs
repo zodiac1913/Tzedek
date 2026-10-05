@@ -16,16 +16,25 @@ const canGenerateIconsWithSips = process.platform === "darwin" && fs.existsSync(
 
 const runtimeFilesToCopy = [
   "smlCompliance.js",
+  "smlComplianceBootstrap.js",
   "smlComplianceRunner.js"
 ];
 
 const bookmarkletFilesToCopy = [
-  "compliance-bookmarklet.html"
+  "compliance-bookmarklet.html",
+  "compliance-bookmarklet.js"
 ];
 
 fs.mkdirSync(extensionPageDir, { recursive: true });
 fs.mkdirSync(extensionAssetsDir, { recursive: true });
 fs.mkdirSync(extensionIconsDir, { recursive: true });
+
+// Package the homepage independently of the installer; preserve its user-maintained styling.
+const homepage = fs.readFileSync(path.join(repoRoot, "demo", "index.html"), "utf8");
+fs.writeFileSync(path.join(extensionPageDir, "index.html"), homepage.replace('<base href="./page/">', '<base href="./">'));
+const wcagDemo = fs.readFileSync(path.join(repoRoot, "demo", "wcag-demo.html"), "utf8");
+fs.writeFileSync(path.join(extensionPageDir, "wcag-demo.html"), wcagDemo.replace('<base href="./page/">', '<base href="./">'));
+fs.copyFileSync(path.join(repoRoot, "demo", "wcag-demo.js"), path.join(extensionPageDir, "wcag-demo.js"));
 
 for (const fileName of runtimeFilesToCopy) {
   const sourcePath = path.join(runtimeDir, fileName);

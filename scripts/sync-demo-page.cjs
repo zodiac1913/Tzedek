@@ -10,15 +10,21 @@ const demoAssetsDir = path.join(demoPageDir, "assets");
 
 const runtimeFilesToCopy = [
   "smlCompliance.js",
+  "smlComplianceBootstrap.js",
   "smlComplianceRunner.js"
 ];
 
 const bookmarkletFilesToCopy = [
-  "compliance-bookmarklet.html"
+  "compliance-bookmarklet.html",
+  "compliance-bookmarklet.js"
 ];
 
 fs.mkdirSync(demoPageDir, { recursive: true });
 fs.mkdirSync(demoAssetsDir, { recursive: true });
+
+const wcagDemo = fs.readFileSync(path.join(repoRoot, "demo", "wcag-demo.html"), "utf8");
+fs.writeFileSync(path.join(demoPageDir, "wcag-demo.html"), wcagDemo.replace('<base href="./page/">', '<base href="./">'));
+fs.copyFileSync(path.join(repoRoot, "demo", "wcag-demo.js"), path.join(demoPageDir, "wcag-demo.js"));
 
 for (const fileName of runtimeFilesToCopy) {
   const sourcePath = path.join(runtimeDir, fileName);

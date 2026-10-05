@@ -8,21 +8,31 @@ const root = path.resolve(__dirname, "..");
 const releaseVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).releaseVersion;
 
 for (const installer of [
-  { href: "https://tzedek.example/tzedek/compliance-bookmarklet.html", baseURI: "https://tzedek.example/tzedek/compliance-bookmarklet.html", prefix: "/tzedek/" },
-  { href: "https://tzedek.example/", baseURI: "https://tzedek.example/tzedek/", prefix: "/tzedek/" },
-  { href: "http://localhost:4183/demo/page/compliance-bookmarklet.html", baseURI: "http://localhost:4183/demo/page/compliance-bookmarklet.html", prefix: "/demo/page/" }
+  { file: "bookmarklet/compliance-bookmarklet.html", href: "https://tzedek.example/tzedek/compliance-bookmarklet.html", baseURI: "https://tzedek.example/tzedek/compliance-bookmarklet.html", prefix: "/tzedek/" },
+  { file: "extension/page/index.html", href: "https://tzedek.example/", baseURI: "https://tzedek.example/tzedek/", prefix: "/tzedek/" },
+  { file: "demo/index.html", href: "http://localhost:4183/demo/index.html", baseURI: "http://localhost:4183/demo/page/", prefix: "/demo/page/" },
+  { file: "extension/page/index.html", href: "chrome-extension://test/page/index.html", baseURI: "chrome-extension://test/page/", prefix: "/page/" },
+  { file: "bookmarklet/compliance-bookmarklet.html", href: "http://localhost:4183/demo/page/compliance-bookmarklet.html", baseURI: "http://localhost:4183/demo/page/compliance-bookmarklet.html", prefix: "/demo/page/" }
 ]) {
 test(`Installer at ${installer.href} generates the correct runtime and asset URLs`, () => {
-  const html = fs.readFileSync(path.join(root, "bookmarklet/compliance-bookmarklet.html"), "utf8");
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const html = fs.readFileSync(path.join(root, installer.file), "utf8");
+  assert.match(html, /<script src="\.\/compliance-bookmarklet\.js"><\/script>/);
+  const scriptPath = installer.file === "demo/index.html"
+    ? "demo/page/compliance-bookmarklet.js"
+    : installer.file.replace(/[^/]+$/, "compliance-bookmarklet.js");
+  const script = fs.readFileSync(path.join(root, scriptPath), "utf8");
+  const skipLink = {};
   const context = vm.createContext({
     URL,
-    document: { baseURI: installer.baseURI },
+    document: { baseURI: installer.baseURI, querySelector: () => skipLink },
     window: { location: { href: installer.href } }
   });
-  const end = script.indexOf("        const bookmarkletLink =");
+  const end = script.indexOf("  const bookmarkletLink =");
   assert.ok(end > 0);
   vm.runInContext(script.slice(0, end) + "globalThis.code = bookmarkletCode; })();", context);
+  if (installer.file.endsWith("/index.html")) {
+    assert.equal(skipLink.href, `${installer.href}#maincontent`);
+  }
   assert.ok(context.code.includes(`bookmarkletVersion=${releaseVersion}`));
   let loadedScript;
   context.window.TzedekConfig = {};

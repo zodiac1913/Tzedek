@@ -26,7 +26,8 @@ test("Every emitted finding renders a nonempty How to Fix page", async () => {
     "Unknown future finding"
   ]);
   const html = fs.readFileSync(path.join(root, "src/runtime/assets/issue-guide.html"), "utf8");
-  const script = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1]
+  assert.match(html, /<script type="module" src="\.\/issue-guide\.js"><\/script>/);
+  const script = fs.readFileSync(path.join(root, "src/runtime/assets/issue-guide.js"), "utf8")
     .replace(/^\s*import .*;\s*$/gm, "");
   function node() {
     return {
@@ -49,6 +50,11 @@ test("Every emitted finding renders a nonempty How to Fix page", async () => {
       createElement: node
     };
     globalThis.document = document;
+    globalThis.DOMParser ??= class {
+      parseFromString(html) {
+        return { body: { textContent: String(html).replace(/<[^>]*>/g, "") } };
+      }
+    };
     const url = new URL("https://tzedek.example/assets/issue-guide.html");
     url.searchParams.set("title", title);
     vm.runInNewContext(script, {

@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.10.05.04";
+  const TZEDEK_VERSION = "2026.10.05.05";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -370,10 +370,14 @@
         reject(new Error("Module script bootstrap timed out"));
       }, 3500);
 
-      function onReady() {
+      function onReady(event) {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
         window.removeEventListener(readyEventName, onReady);
+        if (event.detail?.error) {
+          reject(event.detail.error);
+          return;
+        }
         if (typeof window.smlComplianceGetMoreInfoUrl === "function") {
           currentGetMoreInfoUrl = window.smlComplianceGetMoreInfoUrl;
         }
@@ -396,7 +400,9 @@
       const script = document.createElement("script");
       script.id = scriptId;
       script.type = "module";
-      script.textContent = "import { smlCompliance, runComplianceAudit, getMoreInfoUrl, getMoreInfoLinks, getSmlcNewWindowLinkLabel } from '" + moduleUrl + "'; window.smlCompliance = smlCompliance; window.runComplianceAudit = runComplianceAudit; window.smlComplianceGetMoreInfoUrl = getMoreInfoUrl; window.smlComplianceGetMoreInfoLinks = getMoreInfoLinks; window.smlComplianceGetNewWindowLinkLabel = getSmlcNewWindowLinkLabel; window.dispatchEvent(new Event('" + readyEventName + "'));";
+      const bootstrapUrl = new URL("./smlComplianceBootstrap.js", moduleUrl);
+      bootstrapUrl.searchParams.set("moduleUrl", moduleUrl);
+      script.src = bootstrapUrl.href;
       script.onerror = function () {
         if (timedOut) return;
         window.clearTimeout(timeoutId);
@@ -706,10 +712,8 @@
   }
 
   function stripHtml(value) {
-    const temp = document.createElement("div");
-    markSmlcElementTree(temp);
-    temp.innerHTML = String(value || "");
-    return (temp.textContent || "").trim();
+    // Findings can quote audited-page markup; parse inertly so it never executes.
+    return (new DOMParser().parseFromString(String(value || ""), "text/html").body.textContent || "").trim();
   }
 
   function getPrimaryJumpTarget() {

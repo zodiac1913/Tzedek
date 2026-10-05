@@ -27,8 +27,13 @@ extract_zip() {
       for (;;) {
         my $name = $zip->getHeaderInfo->{Name};
         if (($name eq "page/smlCompliance.js"
+            || $name eq "page/smlComplianceBootstrap.js"
             || $name eq "page/smlComplianceRunner.js"
             || $name eq "page/compliance-bookmarklet.html"
+            || $name eq "page/compliance-bookmarklet.js"
+            || $name eq "page/index.html"
+            || $name eq "page/wcag-demo.html"
+            || $name eq "page/wcag-demo.js"
             || $name =~ m{\Apage/assets/})
             && $name !~ m{(?:\A|/)\.\.?(?:/|\z)}
             && $name !~ m{/\z}) {
@@ -85,12 +90,18 @@ if [ ! -f "$runtime_dir/smlComplianceRunner.js" ] || [ ! -f "$runtime_dir/smlCom
   echo "Release $latest_tag is missing runtime files, installer, or assets, refusing to deploy" >&2
   exit 1
 fi
+if [ ! -f "$runtime_dir/index.html" ] || [ ! -f "$runtime_dir/wcag-demo.html" ] || [ ! -f "$runtime_dir/compliance-bookmarklet.js" ] || [ ! -f "$runtime_dir/wcag-demo.js" ] || [ ! -f "$runtime_dir/assets/issue-guide.js" ] || [ ! -f "$runtime_dir/smlComplianceBootstrap.js" ]; then
+  echo "Release $latest_tag is missing pages or their scripts, refusing to deploy" >&2
+  exit 1
+fi
 
-# Serve the release-managed installer as the homepage too; preserve vendor/ and other local files.
+# Deploy standalone pages without changing the extension's relative resource base.
 mkdir -p "$WEB_ROOT/assets"
-cp "$runtime_dir/smlComplianceRunner.js" "$runtime_dir/smlCompliance.js" "$runtime_dir/compliance-bookmarklet.html" "$WEB_ROOT/"
-# The root homepage must use the CORS-enabled /tzedek/ route for runtime and assets.
-sed 's|<head>|<head><base href="/tzedek/">|' "$runtime_dir/compliance-bookmarklet.html" >"$WEB_ROOT/index.html"
+cp "$runtime_dir/smlComplianceRunner.js" "$runtime_dir/smlCompliance.js" "$runtime_dir/smlComplianceBootstrap.js" "$runtime_dir/compliance-bookmarklet.html" "$WEB_ROOT/"
+cp "$runtime_dir/compliance-bookmarklet.js" "$runtime_dir/wcag-demo.js" "$WEB_ROOT/"
+for page in index.html wcag-demo.html; do
+  sed 's|<base href="./">|<base href="/tzedek/">|' "$runtime_dir/$page" >"$WEB_ROOT/$page"
+done
 cp -R "$runtime_dir/assets/." "$WEB_ROOT/assets/"
 
 printf '%s\n' "$latest_tag" >"$STAMP_FILE"

@@ -15,9 +15,9 @@ const runnerPaths = [
   "src/runtime/smlComplianceRunner.js",
   "extension/page/smlComplianceRunner.js",
   "demo/page/smlComplianceRunner.js",
-  "bookmarklet/compliance-bookmarklet.html",
-  "extension/page/compliance-bookmarklet.html",
-  "demo/page/compliance-bookmarklet.html"
+  "bookmarklet/compliance-bookmarklet.js",
+  "extension/page/compliance-bookmarklet.js",
+  "demo/page/compliance-bookmarklet.js"
 ];
 
 const errors = [];

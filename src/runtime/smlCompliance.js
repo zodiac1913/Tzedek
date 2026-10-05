@@ -4272,10 +4272,8 @@ function getPlainLanguageIssueDescription(title) {
 }
 
 function getAriaAttributeNameFromText(text) {
-  const temp = document.createElement("div");
-  markSmlcElementTree(temp);
-  temp.innerHTML = String(text || "");
-  const visibleText = temp.textContent || "";
+  // DOMParser builds an inert document: URL-supplied markup cannot run handlers or load resources.
+  const visibleText = new DOMParser().parseFromString(String(text || ""), "text/html").body.textContent || "";
   const pattern = /\baria-[a-z0-9-]+\b/i;
   const match = pattern.exec(visibleText);
   return match ? match[0].toLowerCase() : "";

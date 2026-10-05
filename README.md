@@ -65,7 +65,7 @@ The public server's code-server workspace serves files directly from `/config/wo
 TZEDEK_WEB_ROOT=/config/workspace bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
 ```
 
-The script installs the released runtime, `assets/`, and `compliance-bookmarklet.html`, and copies that installer to `index.html` as the homepage. Both pages are release-managed, replacing custom server copies, and their generated bookmarklet URL carries the release version. Back up any custom homepage before deploying. It preserves `vendor/`, homepage backups, and other local files. It can extract with Perl's `IO::Uncompress::Unzip` when other ZIP extractors are unavailable. The `.tzedek-release` stamp skips repeat deployments; set `TZEDEK_FORCE_DEPLOY=1` to reinstall the same release. No CATS files or credentials are needed.
+The homepage source is `demo/index.html`; edit its colors and content here, not just on the server. The intentionally broken test page is `demo/wcag-demo.html`, recovered from the original GitHub demo. The homepage links to it at the bottom. Packaging places both alongside the runtime and the separate bookmarklet installer. Deployment installs the packaged homepage as `index.html` and the test page as `wcag-demo.html`, preserving `vendor/`, backups, and other local files. The `.tzedek-release` stamp skips repeat deployments; set `TZEDEK_FORCE_DEPLOY=1` to reinstall the same release.
 
 **One-time upgrade:** the old server script skips the installer. Replace it before deploying:
 
@@ -74,9 +74,11 @@ curl -fL https://raw.githubusercontent.com/zodiac1913/Tzedek/main/scripts/deploy
 TZEDEK_FORCE_DEPLOY=1 bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
 ```
 
-Then reload the homepage or `/tzedek/compliance-bookmarklet.html` without the browser cache. Both serve the same release-managed installer. When upgrading to homepage deployment, use the forced command above even if the current release is already recorded.
+Then reload the homepage without browser cache. The separate installer remains at `/tzedek/compliance-bookmarklet.html`; the deliberately broken test page is `/tzedek/wcag-demo.html`. Upgrade the server script when deploying the first release containing these separate pages.
 
-The deployed homepage includes `<base href="/tzedek/">`. The installer resolves its runtime and assets from that document base, so bookmarks made on the homepage use the server's CORS-enabled `/tzedek/` route, not the root route. Previously saved bookmarks that target `/smlCompliance.js` must be recreated from the updated installer.
+The deployed homepage includes `<base href="/tzedek/">`. Locally, it uses `./page/`. Its launcher resolves runtime and assets from that document base, preserving the CORS-enabled hosted route.
+
+Extension pages use a relative `./` base; deployment changes it to `/tzedek/` for the hosted homepage and demo. Page JavaScript lives in external files: `bookmarklet/compliance-bookmarklet.js` is shared by the homepage and installer, `demo/wcag-demo.js` builds the deliberate test fixtures, and `src/runtime/assets/issue-guide.js` renders fix guides. The runner's module-script fallback uses `src/runtime/smlComplianceBootstrap.js`. Keep these scripts packaged and deployed with their pages; Manifest V3 does not allow inline scripts or event handlers. No relaxed CSP is required. The generated `javascript:` bookmark remains a drag/copy installation artifact, not an extension-page execution path.
 
 If a separate `cms.gov` site is added later, document and validate its deployment flow independently rather than treating CATS as an intermediary.
 
