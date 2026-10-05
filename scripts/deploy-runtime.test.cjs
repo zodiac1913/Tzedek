@@ -6,7 +6,7 @@ const { execFileSync } = require("node:child_process");
 const { test } = require("node:test");
 
 // Mock only GitHub downloads; exercise real archive extraction and deployment in a temporary workspace.
-test("Deployment replaces installer, preserves site files, and supports forced repair", () => {
+test("Deployment replaces installer and homepage, preserves site files, and supports forced repair", () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "tzedek-deploy-test-"));
   try {
     const web = path.join(temp, "web");
@@ -22,6 +22,9 @@ test("Deployment replaces installer, preserves site files, and supports forced r
     const archive = path.join(temp, "Tzedek.zip");
     execFileSync("zip", ["-qr", archive, "page"], { cwd: bundle });
     fs.writeFileSync(path.join(web, "index.html"), "custom homepage");
+    fs.writeFileSync(path.join(web, "index.html.backup"), "saved homepage");
+    fs.mkdirSync(path.join(web, "vendor"));
+    fs.writeFileSync(path.join(web, "vendor/local.css"), "local vendor asset");
     fs.writeFileSync(path.join(web, "compliance-bookmarklet.html"), "old installer");
     fs.writeFileSync(path.join(bin, "curl"), `#!/bin/bash
 if [ "$1" = "-fsSL" ] && [ "$2" = "-o" ]; then
@@ -34,11 +37,15 @@ fi
     const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TZEDEK_WEB_ROOT: web, TEST_ARCHIVE: archive, TZEDEK_FORCE_DEPLOY: "0" };
     execFileSync("bash", [script], { env });
     assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), "released compliance-bookmarklet.html");
-    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), "custom homepage");
+    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), "released compliance-bookmarklet.html");
+    assert.equal(fs.readFileSync(path.join(web, "index.html.backup"), "utf8"), "saved homepage");
+    assert.equal(fs.readFileSync(path.join(web, "vendor/local.css"), "utf8"), "local vendor asset");
     assert.match(execFileSync("bash", [script], { env, encoding: "utf8" }), /Already serving/);
     fs.writeFileSync(path.join(web, "compliance-bookmarklet.html"), "stale installer");
+    fs.writeFileSync(path.join(web, "index.html"), "stale homepage");
     execFileSync("bash", [script], { env: { ...env, TZEDEK_FORCE_DEPLOY: "1" } });
     assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), "released compliance-bookmarklet.html");
+    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), "released compliance-bookmarklet.html");
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
