@@ -89,7 +89,8 @@ fi
 # Serve the release-managed installer as the homepage too; preserve vendor/ and other local files.
 mkdir -p "$WEB_ROOT/assets"
 cp "$runtime_dir/smlComplianceRunner.js" "$runtime_dir/smlCompliance.js" "$runtime_dir/compliance-bookmarklet.html" "$WEB_ROOT/"
-cp "$runtime_dir/compliance-bookmarklet.html" "$WEB_ROOT/index.html"
+# The root homepage must use the CORS-enabled /tzedek/ route for runtime and assets.
+sed 's|<head>|<head><base href="/tzedek/">|' "$runtime_dir/compliance-bookmarklet.html" >"$WEB_ROOT/index.html"
 cp -R "$runtime_dir/assets/." "$WEB_ROOT/assets/"
 
 printf '%s\n' "$latest_tag" >"$STAMP_FILE"

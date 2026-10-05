@@ -18,6 +18,9 @@ test("Deployment replaces installer and homepage, preserves site files, and supp
     for (const file of ["smlCompliance.js", "smlComplianceRunner.js", "compliance-bookmarklet.html"]) {
       fs.writeFileSync(path.join(bundle, "page", file), `released ${file}`);
     }
+    const installer = "<html><head></head><body>released installer</body></html>";
+    fs.writeFileSync(path.join(bundle, "page/compliance-bookmarklet.html"), installer);
+    const homepage = installer.replace("<head>", '<head><base href="/tzedek/">');
     fs.writeFileSync(path.join(bundle, "page/assets/test.css"), "released assets");
     const archive = path.join(temp, "Tzedek.zip");
     execFileSync("zip", ["-qr", archive, "page"], { cwd: bundle });
@@ -36,16 +39,16 @@ fi
     const script = path.join(__dirname, "deploy-runtime-to-nginx.sh");
     const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TZEDEK_WEB_ROOT: web, TEST_ARCHIVE: archive, TZEDEK_FORCE_DEPLOY: "0" };
     execFileSync("bash", [script], { env });
-    assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), "released compliance-bookmarklet.html");
-    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), "released compliance-bookmarklet.html");
+    assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), installer);
+    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), homepage);
     assert.equal(fs.readFileSync(path.join(web, "index.html.backup"), "utf8"), "saved homepage");
     assert.equal(fs.readFileSync(path.join(web, "vendor/local.css"), "utf8"), "local vendor asset");
     assert.match(execFileSync("bash", [script], { env, encoding: "utf8" }), /Already serving/);
     fs.writeFileSync(path.join(web, "compliance-bookmarklet.html"), "stale installer");
     fs.writeFileSync(path.join(web, "index.html"), "stale homepage");
     execFileSync("bash", [script], { env: { ...env, TZEDEK_FORCE_DEPLOY: "1" } });
-    assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), "released compliance-bookmarklet.html");
-    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), "released compliance-bookmarklet.html");
+    assert.equal(fs.readFileSync(path.join(web, "compliance-bookmarklet.html"), "utf8"), installer);
+    assert.equal(fs.readFileSync(path.join(web, "index.html"), "utf8"), homepage);
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }

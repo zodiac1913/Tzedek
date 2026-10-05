@@ -6814,6 +6814,9 @@ export class smlCompliance {
       const inputs = form.querySelectorAll("input[required], select[required], textarea[required]");
       
       for (const input of inputs) {
+        if (input.type === "hidden" || isHiddenFromAllUsers(input) || !isElementVisibleForContrastAudit(input)) continue;
+        if (isSmlcOwnedElement(input)) continue;
+
         // Check for error message element
         const errorId = `${input.id}-error`;
         const errorElement = document.getElementById(errorId);

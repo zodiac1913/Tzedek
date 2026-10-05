@@ -76,6 +76,8 @@ TZEDEK_FORCE_DEPLOY=1 bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
 
 Then reload the homepage or `/tzedek/compliance-bookmarklet.html` without the browser cache. Both serve the same release-managed installer. When upgrading to homepage deployment, use the forced command above even if the current release is already recorded.
 
+The deployed homepage includes `<base href="/tzedek/">`. The installer resolves its runtime and assets from that document base, so bookmarks made on the homepage use the server's CORS-enabled `/tzedek/` route, not the root route. Previously saved bookmarks that target `/smlCompliance.js` must be recreated from the updated installer.
+
 If a separate `cms.gov` site is added later, document and validate its deployment flow independently rather than treating CATS as an intermediary.
 
 ## Extension Packaging

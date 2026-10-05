@@ -7,10 +7,19 @@ const { test } = require("node:test");
 const root = path.resolve(__dirname, "..");
 const releaseVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).releaseVersion;
 
-test("Installer generates a launcher with the current release version", () => {
+for (const installer of [
+  { href: "https://tzedek.example/tzedek/compliance-bookmarklet.html", baseURI: "https://tzedek.example/tzedek/compliance-bookmarklet.html", prefix: "/tzedek/" },
+  { href: "https://tzedek.example/", baseURI: "https://tzedek.example/tzedek/", prefix: "/tzedek/" },
+  { href: "http://localhost:4183/demo/page/compliance-bookmarklet.html", baseURI: "http://localhost:4183/demo/page/compliance-bookmarklet.html", prefix: "/demo/page/" }
+]) {
+test(`Installer at ${installer.href} generates the correct runtime and asset URLs`, () => {
   const html = fs.readFileSync(path.join(root, "bookmarklet/compliance-bookmarklet.html"), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-  const context = vm.createContext({ URL, window: { location: { href: "https://tzedek.example/tzedek/compliance-bookmarklet.html" } } });
+  const context = vm.createContext({
+    URL,
+    document: { baseURI: installer.baseURI },
+    window: { location: { href: installer.href } }
+  });
   const end = script.indexOf("        const bookmarkletLink =");
   assert.ok(end > 0);
   vm.runInContext(script.slice(0, end) + "globalThis.code = bookmarkletCode; })();", context);
@@ -25,8 +34,11 @@ test("Installer generates a launcher with the current release version", () => {
   vm.runInContext(context.code.replace(/^javascript:/, ""), context);
   const url = new URL(loadedScript.src);
   assert.equal(url.searchParams.get("bookmarkletVersion"), releaseVersion);
-  assert.equal(url.pathname, "/tzedek/smlComplianceRunner.js");
+  assert.equal(url.pathname, `${installer.prefix}smlComplianceRunner.js`);
+  assert.equal(new URL(context.window.TzedekConfig.moduleUrl).pathname, `${installer.prefix}smlCompliance.js`);
+  assert.equal(new URL(context.window.TzedekConfig.assetBaseUrl).pathname, `${installer.prefix}assets/`);
 });
+}
 
 // Expose the runner's helpers without starting an audit or requiring a browser DOM.
 function loadRunner(relativePath, bookmarkletVersion) {

@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.10.05.03";
+  const TZEDEK_VERSION = "2026.10.05.04";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
