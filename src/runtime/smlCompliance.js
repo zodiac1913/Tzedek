@@ -3723,7 +3723,10 @@ function getInputFixContent(normalizedTitle, element) {
     return {
       heading: "Fix: Add an accessible name to the search input",
       description: "The search input needs a clear accessible name so users know what they can search for.",
-      snippets: buildSearchInputFixSuggestions(normalizedTitle, element)
+      snippets: [{
+        heading: "Associate a visible label with the search input",
+        code: buildInputLabelFixMarkup(element)
+      }]
     };
   }
 
@@ -5218,14 +5221,14 @@ function getCanonicalReferenceLinks(title, message) {
   return canonicalUrl ? [{ label: "More Info", url: canonicalUrl }] : [];
 }
 
-function getMoreInfoLinks(title, message) {
-  const guideUrl = getIssueGuideUrl(title, message);
+function getMoreInfoLinks(title, message, element = null) {
+  const guideUrl = getIssueGuideUrl(title, message, element);
   const links = getCanonicalReferenceLinks(title, message);
   const hasGuideLink = links.some((link) => link.url === guideUrl);
 
   if (!hasGuideLink) {
     links.push({
-      label: links.length > 0 ? "How to Fix" : "More Info",
+      label: "How to Fix",
       url: guideUrl
     });
   }
@@ -5233,11 +5236,11 @@ function getMoreInfoLinks(title, message) {
   return links;
 }
 
-function getMoreInfoUrl(title, message) {
-  return getMoreInfoLinks(title, message)[0]?.url || getIssueGuideUrl(title, message);
+function getMoreInfoUrl(title, message, element = null) {
+  return getMoreInfoLinks(title, message, element)[0]?.url || getIssueGuideUrl(title, message, element);
 }
 
-function getIssueGuideUrl(title = "", message = "") {
+function getIssueGuideUrl(title = "", message = "", element = null) {
   const guideBaseUrl = globalThis.TzedekConfig?.assetBaseUrl;
   const baseUrl = typeof guideBaseUrl === "string" && guideBaseUrl.trim().length > 0
     ? guideBaseUrl
@@ -5248,6 +5251,13 @@ function getIssueGuideUrl(title = "", message = "") {
   guideUrl.searchParams.set("title", normalizedTitle);
   if (normalizedMessage) {
     guideUrl.searchParams.set("message", normalizedMessage);
+  }
+  if (normalizedTitle === "Accessible Name Does Not Include Visible Label") {
+    const overrideDetails = getAccessibleNameOverrideDetails(element);
+    if (overrideDetails) {
+      guideUrl.searchParams.set("visibleLabel", overrideDetails.visibleText);
+      guideUrl.searchParams.set("labelSource", overrideDetails.sourceAttribute);
+    }
   }
   return guideUrl.href;
 }
@@ -5645,8 +5655,8 @@ function createComplianceAlert(level, title, message, element, options = {}) {
   wireColorSourceHoverHandlers(alertDiv);
   wireButtonPreviewHandlers(alertDiv);
 
-  const moreInfoUrl = getMoreInfoUrl(title, message);
-  for (const linkInfo of getMoreInfoLinks(title, message)) {
+  const moreInfoUrl = getMoreInfoUrl(title, message, element);
+  for (const linkInfo of getMoreInfoLinks(title, message, element)) {
     const moreInfoLink = document.createElement("a");
     moreInfoLink.className = "sml-compliance-more-info";
     moreInfoLink.href = linkInfo.url || moreInfoUrl;

@@ -126,6 +126,36 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       }
     ]
   },
+  "Missing Error Message Element": {
+    overview: "A required field should expose its validation error through a programmatic relationship when an error is present. This finding recommends providing a real message element and connecting it to the field.",
+    whyItMatters: [
+      "People who cannot see the page may not know which field failed or what needs correcting.",
+      "A message that is only visually nearby may not be announced when the field receives focus.",
+      "A dependable relationship helps users recover from validation errors without guessing."
+    ],
+    reviewChecklist: [
+      "Use Jump to location to inspect the reported field and how its validation state is presented.",
+      "Add a message element with a unique id and text that explains how to correct the field.",
+      "When the field is invalid, set aria-invalid=\"true\" and reference the message with aria-describedby or aria-errormessage.",
+      "Keep required-state instructions distinct from an error message; show the error when validation identifies a problem.",
+      "Trigger the validation error and confirm the message is visible and announced for that field."
+    ],
+    howToFix: [
+      "Create an error-message element with a unique id and specific correction guidance.",
+      "When the field is invalid, associate that message with the field using aria-describedby or aria-errormessage.",
+      "Keep the message available while the field is invalid, and remove or update the invalid state when corrected."
+    ],
+    examples: [
+      {
+        heading: "Associate a validation message with the invalid field",
+        code: "<label for=\"account-number\">Account number</label>\n<input id=\"account-number\" aria-invalid=\"true\" aria-describedby=\"account-number-error\">\n<p id=\"account-number-error\">Enter the 10-digit account number.</p>"
+      },
+      {
+        heading: "Alternatively, use aria-errormessage for the error",
+        code: "<label for=\"account-number\">Account number</label>\n<input id=\"account-number\" aria-invalid=\"true\" aria-errormessage=\"account-number-error\">\n<p id=\"account-number-error\">Enter the 10-digit account number.</p>"
+      }
+    ]
+  },
   "Link Missing Text": {
     overview: "This finding appears when a link has no reliable accessible name from visible text or labeling.",
     whyItMatters: [
@@ -430,19 +460,6 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Remove role=search from the type=search input.",
       "Add role=search to a container that contains the input and related search controls.",
       "Keep the input as type=search so it retains its native semantics."
-    ]
-  },
-  "Missing Error Message Element": {
-    overview: "This finding appears when a field references error or help text that is supposed to exist, but the actual message element is missing.",
-    whyItMatters: [
-      "The field may point to a helper or error id that no longer exists in the DOM.",
-      "Users can hear that more context should exist while never receiving the missing text itself.",
-      "Broken description references often show up after markup refactors, partial rendering, or conditional validation states."
-    ],
-    reviewChecklist: [
-      "Verify that the referenced error or help element actually exists on the page.",
-      "Check that the id matches exactly, including casing and suffix conventions.",
-      "If the message is conditional, make sure it is rendered whenever the field points to it."
     ]
   },
   "Empty ARIA Label": {

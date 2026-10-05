@@ -25,12 +25,14 @@ Tzedek's runner is built to start from a classic injected script, so you can use
 4. Drag the Tzedek bookmarklet button to your bookmarks bar, or create a new bookmark and use this as the bookmark URL:
 
 	```text
-	javascript:(()=>{const base='http://localhost:4183/demo/page/';window.TzedekConfig={...(window.TzedekConfig||{}),moduleUrl:new URL('smlCompliance.js',base).href,assetBaseUrl:new URL('assets/',base).href,bootstrapIconsHref:'',repositoryUrl:'https://github.com/zodiac1913/Tzedek'};document.getElementById('tzedek-bookmarklet-loader')?.remove();const script=document.createElement('script');script.id='tzedek-bookmarklet-loader';const bookmarkletVersion=(window.TzedekConfig.releaseVersion||'').toString().trim();const suffix=bookmarkletVersion?`&bookmarkletVersion=${encodeURIComponent(bookmarkletVersion)}`:'';script.src=new URL(`smlComplianceRunner.js?t=${Date.now()}${suffix}`,base).href;script.dataset.moduleUrl=window.TzedekConfig.moduleUrl;document.documentElement.appendChild(script);})();
+	javascript:(()=>{const base='http://localhost:4183/demo/page/';window.TzedekConfig={...(window.TzedekConfig||{}),moduleUrl:new URL('smlCompliance.js',base).href,assetBaseUrl:new URL('assets/',base).href,bootstrapIconsHref:'',repositoryUrl:'https://github.com/zodiac1913/Tzedek'};document.getElementById('tzedek-bookmarklet-loader')?.remove();const script=document.createElement('script');script.id='tzedek-bookmarklet-loader';script.src=new URL(`smlComplianceRunner.js?t=${Date.now()}`,base).href;script.dataset.moduleUrl=window.TzedekConfig.moduleUrl;document.documentElement.appendChild(script);})();
 	```
 
 5. Open the page you want to review and click the bookmark.
 
 The bookmarklet loads the same shared runtime used by the extension. After Tzedek opens, use the page controls the same way you would in the extension flow.
+
+The saved bookmarklet is a launcher, not a pinned runtime release. Each launch requests the hosted runtime with a cache-busting timestamp. Tzedek displays the loaded runtime's version and does not require recreating the bookmark merely because a release number changed. Older launchers carrying a `bookmarkletVersion` parameter remain supported; that metadata does not indicate a compatibility failure.
 
 ## Notes
 

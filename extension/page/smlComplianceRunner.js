@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.10.05.01";
+  const TZEDEK_VERSION = "2026.10.05.02";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -43,35 +43,8 @@
   }
 
   function getDisplayVersion() {
-    const configuredVersion = getRuntimeConfig().releaseVersion;
-    if (typeof configuredVersion === "string" && configuredVersion.trim().length > 0) {
-      return configuredVersion.trim();
-    }
-
+    // Saved launchers may carry stale version metadata; show the loaded runtime's version.
     return TZEDEK_VERSION;
-  }
-
-  function getBookmarkletVersion() {
-    const currentScriptSrc = document.currentScript?.src || CURRENT_SCRIPT_SRC || "";
-    if (!currentScriptSrc) return "";
-
-    try {
-      return new URL(currentScriptSrc, window.location.href).searchParams.get("bookmarkletVersion") || "";
-    } catch (_err) {
-      return "";
-    }
-  }
-
-  function getBookmarkletUpdateNotice(displayVersion, bookmarkletVersion) {
-    const normalizedBookmarkletVersion = (bookmarkletVersion || "").trim();
-    if (!normalizedBookmarkletVersion) return null;
-    if (normalizedBookmarkletVersion === displayVersion) return null;
-
-    return {
-      bookmarkletVersion: normalizedBookmarkletVersion,
-      runtimeVersion: displayVersion,
-      installUrl: getInstallUrl()
-    };
   }
 
   function getRepositoryUrl() {
@@ -81,15 +54,6 @@
     }
 
     return DEFAULT_REPOSITORY_URL;
-  }
-
-  function getInstallUrl() {
-    const configuredUrl = getRuntimeConfig().installUrl;
-    if (typeof configuredUrl === "string" && configuredUrl.trim().length > 0) {
-      return configuredUrl.trim();
-    }
-
-    return new URL("./compliance-bookmarklet.html", CURRENT_SCRIPT_SRC || window.location.href).href;
   }
 
   function resolveModuleUrl() {
@@ -1103,7 +1067,7 @@
         title,
         plainDescription: alert.plainDescription || "",
         message,
-        referenceLinks: getIssueReferenceLinks(title, message),
+        referenceLinks: getIssueReferenceLinks(title, message, alert.element),
         contrastSwatches: normalizeContrastSwatches(alert.contrastSwatches),
         why: getWhyText(level),
         targetId: getSafeTargetId(alert.element, index)
@@ -1111,9 +1075,9 @@
     });
   }
 
-  function getIssueReferenceUrl(title, message) {
+  function getIssueReferenceUrl(title, message, element = null) {
     if (typeof currentGetMoreInfoUrl === "function") {
-      const mappedUrl = currentGetMoreInfoUrl(title, message);
+      const mappedUrl = currentGetMoreInfoUrl(title, message, element);
       if (typeof mappedUrl === "string" && mappedUrl.trim()) return mappedUrl;
     }
 
@@ -1129,9 +1093,9 @@
     return guideUrl.href;
   }
 
-  function getIssueReferenceLinks(title, message) {
+  function getIssueReferenceLinks(title, message, element = null) {
     if (typeof currentGetMoreInfoLinks === "function") {
-      const mappedLinks = currentGetMoreInfoLinks(title, message);
+      const mappedLinks = currentGetMoreInfoLinks(title, message, element);
       if (Array.isArray(mappedLinks)) {
         const validLinks = mappedLinks
           .map((link) => ({
@@ -1143,7 +1107,7 @@
       }
     }
 
-    return [{ label: "More Info", url: getIssueReferenceUrl(title, message) }];
+    return [{ label: "More Info", url: getIssueReferenceUrl(title, message, element) }];
   }
 
   function getIssuePageOrder(element, fallbackIndex) {
@@ -1257,8 +1221,6 @@
     const issues = buildIssueRecords(report.alerts);
     const total = Number(report.total || 0);
     const displayVersion = getDisplayVersion();
-    const bookmarkletVersion = getBookmarkletVersion();
-    const updateNotice = getBookmarkletUpdateNotice(displayVersion, bookmarkletVersion);
     const blockedAlerts = detectBlockedAlerts();
     const levelConfig = [
       { key: "critical", label: "Critical", count: Number(report.critical || 0) },
@@ -1373,7 +1335,6 @@
       "<button type='button' class='btn btn-dark' data-smlc-shutdown='1' aria-label='Close Tzedek' title='Close Tzedek'>Close Tzedek</button>",
       "</div>",
       "</div>",
-      updateNotice ? "<div class='smlc-update-notice' role='status' aria-live='polite'><div><strong>Bookmarklet update required</strong>Your saved bookmarklet was built for v" + escapeHtml(updateNotice.bookmarkletVersion) + ", but this runtime is v" + escapeHtml(updateNotice.runtimeVersion) + ". Recreate the bookmarklet from <a href='" + escapeHtml(updateNotice.installUrl) + "' aria-label='Open the installer page' title='Open the installer page'>the installer page</a> so runtime changes stay current.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='update' aria-label='Dismiss update notice' title='Dismiss update notice'>✕</button></div>" : "",
       blockedAlerts.blockedCount > 0 ? "<div class='smlc-update-notice' role='status' aria-live='polite' style='border-color:#dc2626;background:#fee2e2;color:#7f1d1d;'><div><strong>⚠ " + blockedAlerts.blockedCount + " inline alert(s) blocked</strong>Some issues could not be accessed via inline alert buttons—they may be covered by overlays or have layout issues. Use \"See all issues\" above to review all issues in this panel.</div><button type='button' class='smlc-alert-close-btn' data-smlc-dismiss-alert='blocked' aria-label='Dismiss blocked alerts notice' title='Dismiss blocked alerts notice' style='color:#7f1d1d;'>✕</button></div>" : "",
       "<div id='" + TZEDEK_SMLC_ISSUES_BODY_ID + "' class='smlc-body' hidden>",
       "<div class='smlc-controls'>",

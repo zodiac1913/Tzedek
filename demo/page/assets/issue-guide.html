@@ -170,6 +170,14 @@
       const params = new URLSearchParams(window.location.search);
       const title = (params.get("title") || "").trim() || "Accessibility Finding";
       const message = (params.get("message") || "").trim();
+      const visibleLabel = (params.get("visibleLabel") || "").trim();
+      const labelSource = (params.get("labelSource") || "").trim();
+      const hasLabelMismatchContext = title === "Accessible Name Does Not Include Visible Label"
+        && visibleLabel
+        && ["aria-label", "aria-labelledby"].includes(labelSource);
+      const genericFixDescription = message
+        ? `Inspect the flagged element and correct the underlying issue: ${message}`
+        : `Inspect the flagged element, correct the ${title} condition using the guidance below, and run Tzedek again to verify the fix.`;
       const summary = getPlainLanguageIssueDescription(title);
       const fixContent = getComplianceFixContent(title, null);
       const externalLinks = getCanonicalReferenceLinks(title, message);
@@ -235,7 +243,11 @@
       const howToFix = Array.isArray(guideDetails?.howToFix) ? guideDetails.howToFix : [];
       if (fixContent || howToFix.length > 0) {
         document.getElementById("fixSection").hidden = false;
-        document.getElementById("fixDescription").textContent = fixContent?.description || "";
+        document.getElementById("fixDescription").textContent = hasLabelMismatchContext
+          ? labelSource === "aria-labelledby"
+            ? `For this finding, replace aria-labelledby with an aria-label that starts with the visible words "${visibleLabel}".`
+            : `For this finding, change aria-label to start with the visible words "${visibleLabel}".`
+          : fixContent?.description || genericFixDescription;
         if (howToFix.length > 0) {
           const howToFixList = document.createElement("ul");
           for (const item of howToFix) {
@@ -246,8 +258,18 @@
           document.getElementById("fixSection").insertBefore(howToFixList, document.getElementById("fixSnippets"));
         }
         const fixSnippets = document.getElementById("fixSnippets");
-        const guideExamples = Array.isArray(guideDetails?.examples) ? guideDetails.examples : [];
-        for (const snippet of [...guideExamples, ...(fixContent?.snippets || [])]) {
+        const guideExamples = hasLabelMismatchContext
+          ? []
+          : Array.isArray(guideDetails?.examples) ? guideDetails.examples : [];
+        const snippetData = hasLabelMismatchContext
+          ? [{
+              heading: labelSource === "aria-labelledby"
+                ? "Replace aria-labelledby with this aria-label"
+                : "Set aria-label to the visible label",
+              code: `aria-label=${JSON.stringify(visibleLabel)}`
+            }]
+          : guideExamples.length > 0 ? [] : fixContent?.snippets || [];
+        for (const snippet of [...guideExamples, ...snippetData]) {
           const wrapper = document.createElement("div");
           wrapper.className = "guide-snippet";
 
@@ -266,8 +288,19 @@
         }
       } else {
         document.getElementById("fixSection").hidden = false;
-        document.getElementById("fixDescription").textContent = message
-          || `Correct the ${title} condition on the flagged element, then run Tzedek again to verify the repair.`;
+        document.getElementById("fixDescription").textContent = genericFixDescription;
+        const fallbackSteps = [
+          "Use Jump to location to inspect the reported element and its surrounding markup.",
+          "Correct the underlying markup or behavior; do not hide or remove the finding just to silence the checker.",
+          "Run Tzedek again and confirm the issue is resolved while the control or content still works as intended."
+        ];
+        const fallbackList = document.createElement("ul");
+        for (const item of fallbackSteps) {
+          const li = document.createElement("li");
+          li.textContent = item;
+          fallbackList.appendChild(li);
+        }
+        document.getElementById("fixSection").insertBefore(fallbackList, document.getElementById("fixSnippets"));
       }
     </script>
   </body>
