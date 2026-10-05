@@ -55,15 +55,19 @@ Open `http://localhost:4183/demo/` to exercise Tzedek against the intentionally 
 
 The demo is a development surface. It exists to validate the shared runtime and UI outside the extension flow.
 
-## Updating the public Tzedek server
+## Updating tzedek.dirtsailor.org
 
-The public code-server workspace serves files directly from `/config/workspace`; it is separate from the CATS intranet. After publishing a **new Tzedek GitHub release** with `Tzedek.zip`, run this in the public server's VS Code terminal:
+The Tzedek repository is the source of truth. `tzedek.dirtsailor.org` updates by requesting the latest published Tzedek GitHub release from its own server; Tzedek does not push runtime files directly to the live site. CATS copies of Tzedek files are legacy artifacts and are not part of this deployment flow.
+
+The public server's code-server workspace serves files directly from `/config/workspace`. After publishing a **new Tzedek GitHub release** with `Tzedek.zip`, run this in that server's VS Code terminal:
 
 ```sh
 TZEDEK_WEB_ROOT=/config/workspace bash /config/workspace/scripts/deploy-runtime-to-nginx.sh
 ```
 
-The script pulls the latest Tzedek release into that workspace, updating only `smlCompliance.js`, `smlComplianceRunner.js`, and `assets/`. It can extract with Perl's `IO::Uncompress::Unzip` when `unzip`, Python, and `bsdtar` are unavailable. The explicit `TZEDEK_WEB_ROOT` also works with the older script already on the server once this updated script is copied there. It leaves the site's `index.html`, installer, `vendor/`, and other local files alone. It records the deployed release in `.tzedek-release` and skips repeat runs. The latest release does not contain local, unreleased changes; publish a new release first. No CATS files or credentials are needed on the public server.
+The script requests the latest Tzedek release and installs its runtime into that workspace, updating only `smlCompliance.js`, `smlComplianceRunner.js`, and `assets/`. It can extract with Perl's `IO::Uncompress::Unzip` when `unzip`, Python, and `bsdtar` are unavailable. The explicit `TZEDEK_WEB_ROOT` also works with the older script already on the server once this updated script is copied there. It leaves the site's `index.html`, installer, `vendor/`, and other local files alone. It records the deployed release in `.tzedek-release` and skips repeat runs. A server pull gets a published release, not local, unreleased changes; publish a new release first. No CATS files or credentials are needed on the public server.
+
+If a separate `cms.gov` site is added later, document and validate its deployment flow independently rather than treating CATS as an intermediary.
 
 ## Extension Packaging
 

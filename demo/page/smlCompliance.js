@@ -4484,13 +4484,20 @@ function isScreenReaderOnlyElement(element) {
   return Array.from(element.classList || []).some((token) => isScreenReaderOnlyClassToken(token));
 }
 
-function getVisibleControlTextExcludingScreenReaderOnly(element) {
+function getVisibleControlTextExcludingScreenReaderOnly(element, excludedReferencedIds = "") {
   if (!(element instanceof Element)) return "";
 
   const clone = element.cloneNode(true);
   if (!(clone instanceof Element)) return "";
 
   removeSmlcOwnedDescendants(clone);
+
+  const excludedIds = new Set(String(excludedReferencedIds || "").split(/\s+/).filter(Boolean));
+  if (excludedIds.size) {
+    Array.from(clone.querySelectorAll("[id]"))
+      .filter((node) => excludedIds.has(node.id))
+      .forEach((node) => node.remove());
+  }
 
   clone.querySelectorAll("[aria-hidden='true'], [hidden], .d-none, .hidden, script, style, title").forEach((node) => {
     node.remove();
@@ -4530,7 +4537,7 @@ function getVisibleNameBearingText(element) {
     }
   }
 
-  return getVisibleControlText(element);
+  return getVisibleControlTextExcludingScreenReaderOnly(element, element.getAttribute("aria-describedby"));
 }
 
 function normalizeAccessibleNameText(value) {

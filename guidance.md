@@ -113,13 +113,15 @@ Preferred approach:
 
 Do not aggressively strip legacy styling too early. Tzedek's contrast and remediation guidance currently benefits from class-based alternatives that come from that theme layer.
 
-## Public Distribution Direction
+## Hosting And Public Distribution
 
-The intended public path is:
+The current public-site deployment path is:
 
-1. a public GitHub repository for Tzedek
-2. GitHub Pages hosting for bookmarklet loader and runtime assets
-3. unpacked and packaged Chromium extension artifacts for Edge and Chrome
+1. This public GitHub repository is the authoritative Tzedek source and publishes release assets.
+2. `tzedek.dirtsailor.org` requests the latest published release from its own server and installs the runtime into its served workspace.
+3. Browser extension and bookmarklet packages are distributed from the shared runtime and release artifacts.
+
+CATS copies of Tzedek files are legacy artifacts, not an authoritative source or deployment hop. A future `cms.gov` site would be an additional, independent hosting target with a separately documented deployment flow.
 
 ## Naming Guidance
 
