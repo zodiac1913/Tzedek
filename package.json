@@ -1,8 +1,8 @@
 {
   "name": "tzedek",
   "private": true,
-  "version": "2026.10.6-1",
-  "releaseVersion": "2026.10.06.01",
+  "version": "2026.10.6-2",
+  "releaseVersion": "2026.10.06.02",
   "description": "Tzedek accessibility checker: extension and bookmarklet built from one shared runtime.",
   "license": "MIT",
   "scripts": {

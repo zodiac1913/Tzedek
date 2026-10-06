@@ -66,7 +66,7 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
       const isSmlcOwnedElement = () => false;
       const hasContrastReadableText = () => true;
       const isElementVisibleForContrastAudit = () => true;
-      const getContrastStateSnapshots = () => [];
+      let getContrastStateSnapshots = () => [];
       const getContrastSuggestions = () => ({ balanced: {}, foreground: {}, background: {} });
       const ensureAuditTargetId = () => "sample";
       const rgbToHex = rgb => "#" + [rgb.r, rgb.g, rgb.b].map(c => Math.round(c).toString(16).padStart(2, "0")).join("").toUpperCase();
@@ -94,8 +94,6 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
         expect(Math.abs(modernRgb.r - 21) <= 1 && Math.abs(modernRgb.a - 0.5) < 0.01, "Modern RGB with alpha");
         expect(parseRGB("transparent").a === 0, "Transparent background");
         expect(parseRGB("color(srgb 1 0 0)").r === 255, "CSS color() conversion");
-        const gradient = getRepresentativeBackgroundImageColor("linear-gradient(oklch(54.6% .245 262.881), oklch(54.6% .245 262.881))");
-        expect(gradient && Math.abs(gradient.b - bg.b) <= 1, "OKLCH gradient sampling");
         button.style.backgroundColor = "oklch(70% .1 260)";
         const failingBg = getEffectiveBackgroundColor(button);
         checker.checkColorContrast();
@@ -103,6 +101,49 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
         expect(alerts[0][2].includes("Background " + rgbToHex(failingBg)), "Finding must use measured background");
         expect(!alerts[0][2].includes("1.0:1"), "Finding must not invent white-on-white");
         expect(alerts[0][3] === button, "Finding must retain original target");
+        const reviewImage = () => {
+          alerts.length = 0;
+          checker.checkColorContrast();
+          expect(alerts.length === 1 && alerts[0][0] === "info", "Image must produce one informational notice");
+          expect(alerts[0][1] === "Color Contrast Needs Manual Review", "Manual review title");
+          expect(!alerts[0][2].includes(":1") && !alerts[0][2].includes("#FFFFFF"), "No invented ratio or color");
+          expect(alerts[0][3] === button, "Manual notice retains actual target");
+        };
+        button.style.backgroundImage = 'url("rack.png")';
+        reviewImage();
+        button.style.backgroundImage = "linear-gradient(white, black)";
+        reviewImage();
+        button.style.backgroundImage = "none";
+        button.style.backgroundColor = "transparent";
+        document.body.style.backgroundImage = 'url("rack.png")';
+        reviewImage();
+        button.style.backgroundColor = "rgb(0, 0, 0)";
+        alerts.length = 0;
+        checker.checkColorContrast();
+        expect(alerts.length === 0, "Opaque passing button hides ancestor image");
+        button.style.backgroundColor = "white";
+        checker.checkColorContrast();
+        expect(alerts.length === 1 && alerts[0][1] === "Low Color Contrast", "Opaque failing button still measured");
+        button.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+        reviewImage();
+        document.body.style.backgroundImage = "none";
+        document.body.style.backgroundColor = "transparent";
+        document.documentElement.style.backgroundImage = 'url("rack.png")';
+        reviewImage();
+        document.documentElement.style.backgroundImage = "none";
+        document.body.style.backgroundColor = "white";
+        alerts.length = 0;
+        const getImageStates = () => [{ name: "hover", textRgb: parseRGB("white"), backgroundRgb: null, requiresManualReview: true }];
+        getContrastStateSnapshots = getImageStates;
+        button.style.backgroundColor = "black";
+        checker.checkColorContrast();
+        expect(alerts.length === 1 && alerts[0][2].includes("hover"), "Image hover state needs manual review");
+        alerts.length = 0;
+        button.style.backgroundImage = 'url("rack.png")';
+        getContrastStateSnapshots = () => [{ name: "focus", textRgb: parseRGB("white"), backgroundRgb: parseRGB("white") }];
+        checker.checkColorContrast();
+        expect(alerts.length === 2 && alerts[0][0] === "info" && alerts[1][1] === "Low Color Contrast",
+          "Image default does not suppress measurable failing focus");
         document.querySelector("#result").textContent = "PASS " + ratio.toFixed(3);
       } catch (error) {
         document.querySelector("#result").textContent = "FAIL " + error.message;

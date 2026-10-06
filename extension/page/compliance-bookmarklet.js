@@ -1,5 +1,5 @@
 (function () {
-  const TZEDEK_VERSION = "2026.10.06.01";
+  const TZEDEK_VERSION = "2026.10.06.02";
   // A document base changes fragment navigation; keep the skip link on this page.
   const skipLink = document.querySelector(".skip-link");
   if (skipLink) {

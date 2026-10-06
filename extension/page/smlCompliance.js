@@ -183,6 +183,7 @@ const MORE_INFO_URL_BY_TITLE = {
   "Search Landmark Missing": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/search_role",
   "Search Landmark Role on Input": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/search_role",
   "Low Color Contrast": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast",
+  "Color Contrast Needs Manual Review": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Perceivable/Color_contrast",
   "Missing Focus Indicator": "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
   "Non-Standard Click Handler": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role",
   "Audio Missing Transcript": "https://www.w3.org/WAI/WCAG22/Understanding/audio-only-and-video-only-prerecorded.html",
@@ -409,26 +410,6 @@ function parseRGB(colorStr) {
   return parseCssColorToRgbaNullable(colorStr);
 }
 
-function getRepresentativeBackgroundImageColor(backgroundImage) {
-  const safeBackgroundImage = String(backgroundImage || "").trim();
-  if (!safeBackgroundImage || safeBackgroundImage === "none") return null;
-
-  const colorTokens = safeBackgroundImage.match(/(?:rgba?|hsla?|oklch|oklab|lch|lab|color)\([^)]*\)|#[0-9A-Fa-f]{3,8}/gi) || [];
-  const colors = colorTokens
-    .map((token) => parseCssColorToRgbaNullable(token))
-    .filter((color) => color && color.a > 0);
-
-  if (colors.length === 0) return null;
-
-  const midpointColor = colors[Math.floor(colors.length / 2)];
-  return {
-    r: midpointColor.r,
-    g: midpointColor.g,
-    b: midpointColor.b,
-    a: midpointColor.a
-  };
-}
-
 function compositeRgbaOver(top, bottom) {
   const outAlpha = top.a + (bottom.a * (1 - top.a));
   if (outAlpha <= 0) return { r: 0, g: 0, b: 0, a: 0 };
@@ -442,32 +423,31 @@ function compositeRgbaOver(top, bottom) {
 }
 
 /**
- * Get computed background color including parent chain.
- * Returns null rather than substituting an ancestor for an unresolved background.
+ * Stop at opaque paint; images and gradients visible through transparent layers
+ * require manual review, not a guessed solid-color contrast ratio.
  */
-function getEffectiveBackgroundColor(element) {
-  if (!(element instanceof Element)) return { r: 255, g: 255, b: 255 };
+function getContrastBackgroundSample(element) {
+  if (!(element instanceof Element)) return { backgroundRgb: null, requiresManualReview: false };
 
   const layers = [];
   let current = element;
 
   while (current) {
     const styles = window.getComputedStyle(current);
-    const bgImageColor = getRepresentativeBackgroundImageColor(styles.backgroundImage);
-    if (bgImageColor) {
-      layers.push(bgImageColor);
+    if (styles.backgroundImage && styles.backgroundImage !== "none") {
+      return { backgroundRgb: null, requiresManualReview: true };
     }
 
     const bgColor = styles.backgroundColor;
     const parsed = parseCssColorToRgbaNullable(bgColor);
     if (!parsed) {
       console.warn("Tzedek: skipping contrast sample with unresolved background color.", current, bgColor);
-      return null;
+      return { backgroundRgb: null, requiresManualReview: false };
     }
     if (parsed && parsed.a > 0) {
       layers.push(parsed);
     }
-    if (current === document.body) break;
+    if (parsed.a === 1) break;
     current = current.parentElement;
   }
 
@@ -476,7 +456,14 @@ function getEffectiveBackgroundColor(element) {
     composed = compositeRgbaOver(layers[i], composed);
   }
 
-  return { r: composed.r, g: composed.g, b: composed.b };
+  return {
+    backgroundRgb: { r: composed.r, g: composed.g, b: composed.b },
+    requiresManualReview: false
+  };
+}
+
+function getEffectiveBackgroundColor(element) {
+  return getContrastBackgroundSample(element).backgroundRgb;
 }
 
 function splitSelectorList(selectorText) {
@@ -769,7 +756,7 @@ function measureContrastStateSnapshot(element, stateOverrides) {
 
     return {
       textRgb,
-      backgroundRgb: getEffectiveBackgroundColor(clonedTarget)
+      ...getContrastBackgroundSample(clonedTarget)
     };
   } finally {
     probeHost.remove();
@@ -788,7 +775,6 @@ function getContrastStateSnapshots(element) {
   if (!currentTextRgb) return [];
 
   const currentBackgroundRgb = getEffectiveBackgroundColor(element);
-  if (!currentBackgroundRgb) return [];
   const snapshots = [];
 
   for (const stateDefinition of CONTRAST_STATE_DEFINITIONS) {
@@ -802,15 +788,16 @@ function getContrastStateSnapshots(element) {
     const snapshot = measureContrastStateSnapshot(element, stateOverrides);
     if (!snapshot) continue;
 
-    const changed = rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
-      || rgbDistanceSquared(snapshot.backgroundRgb, currentBackgroundRgb) !== 0;
+    const changed = snapshot.requiresManualReview
+      || (!currentBackgroundRgb && snapshot.backgroundRgb)
+      || (snapshot.backgroundRgb && (rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
+      || rgbDistanceSquared(snapshot.backgroundRgb, currentBackgroundRgb) !== 0));
 
     if (!changed) continue;
 
     snapshots.push({
       name: stateDefinition.name,
-      textRgb: snapshot.textRgb,
-      backgroundRgb: snapshot.backgroundRgb
+      ...snapshot
     });
   }
 
@@ -3760,6 +3747,14 @@ function getSemanticControlFixContent(normalizedTitle, element) {
 }
 
 function getContrastAndFocusFixContent(normalizedTitle, element) {
+  if (normalizedTitle === "Color Contrast Needs Manual Review") {
+    return {
+      heading: "Review contrast over the rendered background",
+      description: "Measure the image or gradient directly behind the text, including animation frames and interactive states. No automatic pass or failure has been determined. If needed, place the text on an opaque surface with verified contrast.",
+      snippets: []
+    };
+  }
+
   if (normalizedTitle === "Low Color Contrast") {
     return {
       heading: "Suggested Fix: Increase the color contrast",
@@ -6317,7 +6312,8 @@ export class smlCompliance {
 
     for (const elem of textElements.slice(0, 50)) { // Check first 50 elements for performance
       const textColor = window.getComputedStyle(elem).color;
-      const bgRGB = getEffectiveBackgroundColor(elem);
+      const backgroundSample = getContrastBackgroundSample(elem);
+      const bgRGB = backgroundSample.backgroundRgb;
       const fontSize = Number.parseFloat(window.getComputedStyle(elem).fontSize);
       const fontWeight = window.getComputedStyle(elem).fontWeight;
       
@@ -6325,13 +6321,25 @@ export class smlCompliance {
       // Skip elements with unresolvable text color
       if (!textRGB) continue;
 
+      const stateSnapshots = getContrastStateSnapshots(elem);
+      const manualStates = [
+        ...(backgroundSample.requiresManualReview ? ["default"] : []),
+        ...stateSnapshots.filter(snapshot => snapshot.requiresManualReview).map(snapshot => snapshot.name)
+      ];
+      if (manualStates.length > 0) {
+        this.addAlert("info", "Color Contrast Needs Manual Review",
+          `A background image or gradient is visible behind this text in the ${manualStates.join(", ")} state(s). ` +
+          "Tzedek cannot determine a reliable contrast ratio from solid CSS colors alone. " +
+          "Review the background directly behind the text, including all animation frames and interactive states. " +
+          "This is not an automatic contrast pass or failure.", elem);
+      }
       const contrastSnapshots = [
         {
           name: "default",
           textRgb: textRGB,
           backgroundRgb: bgRGB
         },
-        ...getContrastStateSnapshots(elem)
+        ...stateSnapshots
       ].filter((snapshot) => snapshot.textRgb && snapshot.backgroundRgb) // Filter out snapshots with unresolved colors
        .map((snapshot) => ({
         ...snapshot,

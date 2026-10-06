@@ -503,6 +503,18 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
       "Make sure hover styles are not being mistaken for focus styles."
     ]
   },
+  "Color Contrast Needs Manual Review": {
+    overview: "An image or gradient is visible behind the text. Solid CSS colors cannot establish its actual contrast, so this informational finding is neither a pass nor a failure.",
+    whyItMatters: [
+      "Contrast can vary across an image, gradient, or animated background.",
+      "An ancestor's fallback color does not describe the pixels actually behind the text."
+    ],
+    reviewChecklist: [
+      "Measure foreground contrast against the rendered pixels directly behind the text.",
+      "Review all animation frames and hover, focus, disabled, and selected states.",
+      "Meet the applicable WCAG text contrast threshold throughout; consider an opaque text background if contrast varies."
+    ]
+  },
   "Low Color Contrast": {
     overview: "This finding appears when foreground and background colors are too similar for reliable reading or control recognition.",
     whyItMatters: [

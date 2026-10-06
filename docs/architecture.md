@@ -43,8 +43,13 @@ Contrast sampling uses computed styles, including resolved CSS custom properties
 Modern color formats such as Tailwind's OKLCH colors are converted to sRGB with a
 detached browser canvas before calculating WCAG contrast. An unresolvable solid
 background skips the sample with a console warning instead of incorrectly using
-the ancestor's background or white. Gradient colors remain representative
-samples, not pixel-exact measurements of text over an image.
+the ancestor's background or white. Visible CSS background images and gradients
+produce an informational manual-review notice without a guessed ratio or palette
+replacement. Review animated backgrounds across frames. Opaque solid backgrounds
+stop ancestor traversal, so an image hidden behind a solid control does not
+trigger that notice. Default and probed interactive states are handled separately;
+solid states can still produce measured failures. This is not screenshot analysis:
+separate image/video elements and pseudo-element overlays are not sampled.
 
 ## Target Runtime Split
 
