@@ -350,8 +350,8 @@ function calculateAPCAContrast(rgb1, rgb2) {
 
 /**
  * Parse CSS color string, returning null if the color cannot be resolved.
- * Returns null for: empty/missing values, unresolved CSS variables, currentcolor, unsupported syntax.
- * Returns the RGBA object only for valid rgb(), hex, or resolved colors.
+ * Returns null for missing, context-dependent, or unsupported colors.
+ * Modern computed colors are converted by the browser to sRGB for WCAG ratios.
  */
 function parseCssColorToRgbaNullable(colorStr) {
   if (!colorStr) return null;
@@ -359,11 +359,11 @@ function parseCssColorToRgbaNullable(colorStr) {
   const safeStr = String(colorStr).trim();
   if (!safeStr) return null;
 
-  // Reject currentcolor (it requires context to resolve)
-  if (/^currentcolor$/i.test(safeStr)) return null;
+  // These keywords require the original element's cascade, not a canvas.
+  if (/^(?:currentcolor|inherit|initial|unset|revert|revert-layer)$/i.test(safeStr)) return null;
 
   // Try to parse rgb/rgba
-  const rgbaMatch = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i.exec(safeStr);
+  const rgbaMatch = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/i.exec(safeStr);
   if (rgbaMatch) {
     return {
       r: Number.parseInt(rgbaMatch[1], 10),
@@ -374,7 +374,7 @@ function parseCssColorToRgbaNullable(colorStr) {
   }
 
   // Try to parse hex
-  const hexMatch = /#([0-9A-Fa-f]{6})/.exec(safeStr);
+  const hexMatch = /^#([0-9A-Fa-f]{6})$/.exec(safeStr);
   if (hexMatch) {
     const hex = hexMatch[1];
     return {
@@ -390,8 +390,16 @@ function parseCssColorToRgbaNullable(colorStr) {
     return null;
   }
 
-  // Reject any other unsupported syntax
-  return null;
+  if (typeof CSS === "undefined" || !CSS.supports("color", safeStr)) return null;
+
+  // A detached sRGB canvas resolves OKLCH, wide-gamut, and modern rgb() syntax
+  // without injecting styles into the audited page or inheriting its CSS.
+  const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+  context.fillStyle = safeStr;
+  context.fillRect(0, 0, 1, 1);
+  const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+  return { r, g, b, a: alpha / 255 };
 }
 
 /**
@@ -401,21 +409,14 @@ function parseRGB(colorStr) {
   return parseCssColorToRgbaNullable(colorStr);
 }
 
-function parseCssColorToRgba(colorStr) {
-  const result = parseCssColorToRgbaNullable(colorStr);
-  if (result) return result;
-  // Fallback for backward compat
-  return { r: 0, g: 0, b: 0, a: 1 };
-}
-
 function getRepresentativeBackgroundImageColor(backgroundImage) {
   const safeBackgroundImage = String(backgroundImage || "").trim();
   if (!safeBackgroundImage || safeBackgroundImage === "none") return null;
 
-  const colorTokens = safeBackgroundImage.match(/rgba?\([^)]*\)|#[0-9A-Fa-f]{3,8}/g) || [];
+  const colorTokens = safeBackgroundImage.match(/(?:rgba?|hsla?|oklch|oklab|lch|lab|color)\([^)]*\)|#[0-9A-Fa-f]{3,8}/gi) || [];
   const colors = colorTokens
-    .map((token) => parseCssColorToRgba(token))
-    .filter((color) => color.a > 0);
+    .map((token) => parseCssColorToRgbaNullable(token))
+    .filter((color) => color && color.a > 0);
 
   if (colors.length === 0) return null;
 
@@ -442,7 +443,7 @@ function compositeRgbaOver(top, bottom) {
 
 /**
  * Get computed background color including parent chain.
- * Ignores unresolved colors (CSS variables, currentcolor, etc.)
+ * Returns null rather than substituting an ancestor for an unresolved background.
  */
 function getEffectiveBackgroundColor(element) {
   if (!(element instanceof Element)) return { r: 255, g: 255, b: 255 };
@@ -459,6 +460,10 @@ function getEffectiveBackgroundColor(element) {
 
     const bgColor = styles.backgroundColor;
     const parsed = parseCssColorToRgbaNullable(bgColor);
+    if (!parsed) {
+      console.warn("Tzedek: skipping contrast sample with unresolved background color.", current, bgColor);
+      return null;
+    }
     if (parsed && parsed.a > 0) {
       layers.push(parsed);
     }
@@ -783,6 +788,7 @@ function getContrastStateSnapshots(element) {
   if (!currentTextRgb) return [];
 
   const currentBackgroundRgb = getEffectiveBackgroundColor(element);
+  if (!currentBackgroundRgb) return [];
   const snapshots = [];
 
   for (const stateDefinition of CONTRAST_STATE_DEFINITIONS) {

@@ -39,6 +39,13 @@ Important constraint:
 
 Do not remove all legacy theme-derived styling. Tzedek's contrast guidance uses class-based alternatives, so the palette and relevant class surface should remain available unless there is a better replacement model.
 
+Contrast sampling uses computed styles, including resolved CSS custom properties.
+Modern color formats such as Tailwind's OKLCH colors are converted to sRGB with a
+detached browser canvas before calculating WCAG contrast. An unresolvable solid
+background skips the sample with a console warning instead of incorrectly using
+the ancestor's background or white. Gradient colors remain representative
+samples, not pixel-exact measurements of text over an image.
+
 ## Target Runtime Split
 
 1. `core`
