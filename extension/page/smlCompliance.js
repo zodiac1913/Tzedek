@@ -775,6 +775,7 @@ function getContrastStateSnapshots(element) {
   if (!currentTextRgb) return [];
 
   const currentBackgroundRgb = getEffectiveBackgroundColor(element);
+  const currentIsClipped = isElementClippedForContrastAudit(element);
   const snapshots = [];
 
   for (const stateDefinition of CONTRAST_STATE_DEFINITIONS) {
@@ -788,7 +789,8 @@ function getContrastStateSnapshots(element) {
     const snapshot = measureContrastStateSnapshot(element, stateOverrides);
     if (!snapshot) continue;
 
-    const changed = snapshot.requiresManualReview
+    const changed = currentIsClipped
+      || snapshot.requiresManualReview
       || (!currentBackgroundRgb && snapshot.backgroundRgb)
       || (snapshot.backgroundRgb && (rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
       || rgbDistanceSquared(snapshot.backgroundRgb, currentBackgroundRgb) !== 0));
@@ -1258,6 +1260,26 @@ function isElementVisibleForContrastAudit(element) {
 
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
+}
+
+// Screen-reader-only content can retain a positive layout box while painting no text.
+// Inspect ancestors too: skip-link labels may be nested inside the clipped anchor.
+function isElementClippedForContrastAudit(element) {
+  for (let current = element; current instanceof Element; current = current.parentElement) {
+    const styles = window.getComputedStyle(current);
+    const clip = String(styles.clip || "").match(/^rect\(([^)]+)\)$/i);
+    if (clip && ["absolute", "fixed"].includes(styles.position)) {
+      const edges = clip[1].trim().split(/[,\s]+/).map(value => Number.parseFloat(value));
+      if (edges.length === 4 && edges.every(Number.isFinite)
+        && (edges[2] <= edges[0] || edges[1] <= edges[3])) {
+        return true;
+      }
+    }
+    if (/^inset\(\s*50%(?:\s+50%){0,3}\s*\)$/i.test(styles.clipPath || "")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isHeadingVisibleForAudit(element) {
@@ -6321,9 +6343,10 @@ export class smlCompliance {
       // Skip elements with unresolvable text color
       if (!textRGB) continue;
 
+      const defaultIsClipped = isElementClippedForContrastAudit(elem);
       const stateSnapshots = getContrastStateSnapshots(elem);
       const manualStates = [
-        ...(backgroundSample.requiresManualReview ? ["default"] : []),
+        ...(!defaultIsClipped && backgroundSample.requiresManualReview ? ["default"] : []),
         ...stateSnapshots.filter(snapshot => snapshot.requiresManualReview).map(snapshot => snapshot.name)
       ];
       if (manualStates.length > 0) {
@@ -6334,11 +6357,11 @@ export class smlCompliance {
           "This is not an automatic contrast pass or failure.", elem);
       }
       const contrastSnapshots = [
-        {
+        ...(!defaultIsClipped ? [{
           name: "default",
           textRgb: textRGB,
           backgroundRgb: bgRGB
-        },
+        }] : []),
         ...stateSnapshots
       ].filter((snapshot) => snapshot.textRgb && snapshot.backgroundRgb) // Filter out snapshots with unresolved colors
        .map((snapshot) => ({

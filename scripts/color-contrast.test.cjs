@@ -44,7 +44,7 @@ const browser = process.env.TZEDEK_TEST_BROWSER
   || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : "");
 
 // Real browser fixtures exercise CSS variables, canvas conversion, and finding output together.
-test("Tailwind OKLCH buttons use their actual background in contrast findings", {
+test("Browser contrast checks preserve real colors and exclude clipped default states", {
   skip: !browser || !fs.existsSync(browser) ? "Set TZEDEK_TEST_BROWSER to a Chromium executable" : false
 }, async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tzedek-contrast-"));
@@ -60,14 +60,23 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
     <script>
       ${helpers}
       let ACCESSIBLE_CSS_STYLE_RULES_CACHE;
-      const CONTRAST_AUDIT_TEXT_SELECTOR = "button";
+      const CONTRAST_AUDIT_TEXT_SELECTOR = "button, a, .screen-reader-label";
       const getAuditCandidateElements = selector => Array.from(document.querySelectorAll(selector));
       const getContrastAuditTarget = element => element;
       const isSmlcOwnedElement = () => false;
       const hasContrastReadableText = () => true;
-      const isElementVisibleForContrastAudit = () => true;
+      ${source.slice(source.indexOf("function isElementVisibleForContrastAudit("), source.indexOf("function isHeadingVisibleForAudit("))}
       let getContrastStateSnapshots = () => [];
-      const getContrastSuggestions = () => ({ balanced: {}, foreground: {}, background: {} });
+      const actualStateSnapshots = (() => {
+        ${source.slice(source.indexOf("const CONTRAST_STATEFUL_SELECTOR ="), source.indexOf("const ALERT_CLASSES ="))}
+        ${source.slice(source.indexOf("function splitSelectorList("), source.indexOf("function clampColorChannel("))}
+        ${source.slice(source.indexOf("function rgbDistanceSquared("), source.indexOf("function rgbDistanceSquared(") + source.slice(source.indexOf("function rgbDistanceSquared(")).indexOf("\n}\n") + 3)}
+        return element => {
+          ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
+          return getContrastStateSnapshots(element);
+        };
+      })();
+      const getContrastSuggestions = () => ({ balanced: { contrast: 4.6 }, foreground: { contrast: 4.6 }, background: { contrast: 4.6 } });
       const ensureAuditTargetId = () => "sample";
       const rgbToHex = rgb => "#" + [rgb.r, rgb.g, rgb.b].map(c => Math.round(c).toString(16).padStart(2, "0")).join("").toUpperCase();
       const formatHexWithSwatch = hex => hex;
@@ -77,6 +86,7 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
       const findBestPaletteReplacement = () => null;
       const findClosestButtonStyles = () => [];
       const formatButtonChoiceList = () => "";
+      const formatNamedColorChoice = () => "";
       const escapeHtml = text => text;
       const alerts = [];
       const checker = { ${source.slice(checkStart, checkEnd)}, cfg: { level: "aa" }, addAlert: (...args) => alerts.push(args) };
@@ -144,6 +154,56 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
         checker.checkColorContrast();
         expect(alerts.length === 2 && alerts[0][0] === "info" && alerts[1][1] === "Low Color Contrast",
           "Image default does not suppress measurable failing focus");
+
+        button.remove();
+        getContrastStateSnapshots = actualStateSnapshots;
+        document.body.insertAdjacentHTML("beforeend", \`<style>
+          a { font-size: 14px; font-weight: 400; color: #17415f; background: #3a5e77; }
+          .visually-hidden-focusable:not(:focus):not(:focus-within), .screen-reader-label {
+            position: absolute; width: 1px; height: 1px; padding: 0;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap;
+          }
+          .visually-hidden-focusable:focus, .visually-hidden-focusable:focus-visible {
+            color: white; background: #17415f;
+          }
+        </style><a href="#main" id="skip" class="visually-hidden-focusable">Skip to main content</a>\`);
+        const skip = document.querySelector("#skip");
+        const audit = () => { alerts.length = 0; checker.checkColorContrast(); };
+        expect(isElementClippedForContrastAudit(skip), "Bootstrap hidden default is clipped despite positive box");
+        audit();
+        expect(alerts.length === 0, "Hidden default must not cause a contrast finding when focus passes");
+        skip.style.backgroundImage = 'url("rack.png")';
+        audit();
+        expect(alerts.length === 0, "A clipped default background image needs no manual review");
+        skip.removeAttribute("style");
+        skip.insertAdjacentHTML("beforeend", "<span> nested label</span>");
+        expect(isElementClippedForContrastAudit(skip.querySelector("span")), "Ancestor clipping hides nested labels");
+        skip.style.clipPath = "inset(50%)";
+        skip.style.clip = "auto";
+        expect(isElementClippedForContrastAudit(skip), "Modern inset clipping is detected");
+        audit();
+        expect(alerts.length === 0, "Modern clipping also excludes default colors");
+        skip.removeAttribute("style");
+        document.body.insertAdjacentHTML("beforeend", \`<style>
+          .visually-hidden-focusable:focus, .visually-hidden-focusable:focus-visible {
+            color: #17415f; background: #3a5e77;
+          }
+        </style>\`);
+        audit();
+        expect(alerts.length === 1 && alerts[0][1] === "Low Color Contrast",
+          "Failing focus is reported even when its colors equal the hidden default");
+        expect(alerts[0][2].includes("focus") && !alerts[0][2].includes("default"),
+          "Hidden default must not appear among measured states");
+        expect(alerts[0][3] === skip, "Focus finding retains actual skip-link target");
+        skip.classList.remove("visually-hidden-focusable");
+        audit();
+        expect(alerts.length === 1 && alerts[0][2].includes("default"),
+          "A visible skip link with the same ID and bad colors is not exempt");
+        skip.remove();
+        document.body.insertAdjacentHTML("beforeend",
+          '<span class="screen-reader-label" style="color:#17415f;background:#3a5e77">Hidden label</span>');
+        audit();
+        expect(alerts.length === 0, "Permanently clipped text needs no visual contrast finding");
         document.querySelector("#result").textContent = "PASS " + ratio.toFixed(3);
       } catch (error) {
         document.querySelector("#result").textContent = "FAIL " + error.message;
@@ -187,7 +247,7 @@ test("Tailwind OKLCH buttons use their actual background in contrast findings", 
       fs.closeSync(outputFd);
     }
     const output = fs.readFileSync(outputPath, "utf8");
-    assert.match(output, /<pre id="result">PASS [\d.]+<\/pre>/);
+    assert.match(output.match(/<pre id="result">[^<]*<\/pre>/)?.[0] || "No browser result", /<pre id="result">PASS [\d.]+<\/pre>/);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

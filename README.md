@@ -36,6 +36,10 @@ Open the installer and drag the Tzedek Bookmarklet button to the bookmarks bar. 
 
 Tzedek is meant to run in the browser against the page you are reviewing.
 
+Contrast checks exclude default-state colors of fully clipped text, including
+Bootstrap's visually hidden skip links, while retaining interactive-state color
+checks. Passing focus colors do not excuse a visible, low-contrast default state.
+
 There are two planned usage modes:
 
 1. Extension: click the Tzedek browser extension on the current page.
