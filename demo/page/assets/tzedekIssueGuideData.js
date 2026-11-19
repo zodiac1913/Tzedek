@@ -504,7 +504,7 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ]
   },
   "Color Contrast Needs Manual Review": {
-    overview: "An image or gradient is visible behind the text. Solid CSS colors cannot establish its actual contrast, so this informational finding is neither a pass nor a failure.",
+    overview: "A background image or a gradient Tzedek could not estimate is visible behind the text. This informational finding is neither a pass nor a failure.",
     whyItMatters: [
       "Contrast can vary across an image, gradient, or animated background.",
       "An ancestor's fallback color does not describe the pixels actually behind the text."
@@ -516,7 +516,7 @@ export const ISSUE_GUIDE_DETAILS_BY_TITLE = {
     ]
   },
   "Low Color Contrast": {
-    overview: "This finding appears when foreground and background colors are too similar for reliable reading or control recognition.",
+    overview: "This finding appears when foreground and background colors are too similar for reliable reading or control recognition. For a CSS gradient, Tzedek estimates contrast from its color stops to offer replacement suggestions; verify the rendered gradient separately.",
     whyItMatters: [
       "Low-vision users may not be able to read the text or recognize the control state.",
       "Color contrast failures are especially punishing on buttons, helper text, placeholder text, and muted secondary content.",

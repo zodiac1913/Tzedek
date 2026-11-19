@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const TZEDEK_VERSION = "2026.10.21.01";
+  const TZEDEK_VERSION = "2026.11.19.01";
   const DEFAULT_REPOSITORY_URL = "https://github.com/zodiac1913/Tzedek";
   const RUNNER_FLAG = "__smlComplianceRunnerActive";
   const REPORT_FLAG = "__smlComplianceLastReport";
@@ -1076,10 +1076,25 @@
         message,
         referenceLinks: getIssueReferenceLinks(title, message, alert.element),
         contrastSwatches: normalizeContrastSwatches(alert.contrastSwatches),
+        catsStrapButtonCss: alert.catsStrapButtonCss,
         why: getWhyText(level),
         targetId: getSafeTargetId(alert.element, index)
       };
     });
+  }
+
+  function addCatsStrapButtonDownload(target, css) {
+    if (typeof css !== "string" || !css) return;
+
+    const linkJml = ["a", {
+      class: "smlc-reference-link",
+      href: `data:text/css;charset=utf-8,${encodeURIComponent(css)}`,
+      download: "tzedek-recommended-buttons.css"
+    }, "Download recommended button CSS"];
+    // The classic runner has no JML renderer; only a fixed anchor and escaped attributes are needed here.
+    const jmlToHtml = ([tag, attrs, text]) => `<${tag}${Object.entries(attrs)
+      .map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`).join("")}>${escapeHtml(text)}</${tag}>`;
+    target.insertAdjacentHTML("beforeend", jmlToHtml(linkJml));
   }
 
   function getIssueReferenceUrl(title, message, element = null) {
@@ -1376,6 +1391,9 @@
       issuesHost.innerHTML = visibleIssues.length
         ? "<ol class='smlc-issue-list'>" + issuesHtml(visibleIssues) + "</ol>"
         : "<p>No issues match the current filters.</p>";
+      issuesHost.querySelectorAll(".smlc-issue-actions").forEach((target, index) => {
+        addCatsStrapButtonDownload(target, visibleIssues[index].catsStrapButtonCss);
+      });
       markSmlcElementTree(summaryHost);
       markSmlcElementTree(issuesHost);
 

@@ -292,35 +292,8 @@ const LEGACY_THEME_COLOR_PALETTE = [
   { name: "alert-info-bg", hex: "#CFF4FC" },
   { name: "alert-info-text", hex: "#055160" }
 ];
-const SML_BUTTON_PALETTE = [
-  { name: "btn-blue", backgroundHex: "#0D6EFD" },
-  { name: "btn-indigo", backgroundHex: "#6610F2" },
-  { name: "btn-purple", backgroundHex: "#6F42C1" },
-  { name: "btn-pink", backgroundHex: "#D63384" },
-  { name: "btn-red", backgroundHex: "#DC3545" },
-  { name: "btn-orange", backgroundHex: "#FD7E14" },
-  { name: "btn-yellow", backgroundHex: "#FFC107" },
-  { name: "btn-green", backgroundHex: "#198754" },
-  { name: "btn-teal", backgroundHex: "#20C997" },
-  { name: "btn-cyan", backgroundHex: "#0DCAF0" },
-  { name: "btn-Aqua", backgroundHex: "#00FFFF" },
-  { name: "btn-CornflowerBlue", backgroundHex: "#6495ED" },
-  { name: "btn-Cyan", backgroundHex: "#00FFFF" },
-  { name: "btn-DarkBlue", backgroundHex: "#00008B" },
-  { name: "btn-DarkCyan", backgroundHex: "#008B8B" },
-  { name: "btn-LightCyan", backgroundHex: "#E0FFFF" },
-  { name: "btn-LightSteelBlue", backgroundHex: "#B0C4DE" },
-  { name: "btn-black", backgroundHex: "#000000" },
-  { name: "btn-white", backgroundHex: "#FFFFFF" },
-  { name: "btn-dark-lava", backgroundHex: "#4B4237" },
-  { name: "btn-goldenrod", backgroundHex: "#D5A021" },
-  { name: "btn-alabaster", backgroundHex: "#EDE7D9" },
-  { name: "btn-spanish-gray", backgroundHex: "#A49694" },
-  { name: "btn-dim-gray", backgroundHex: "#736B60" },
-  { name: "btn-purple-100", backgroundHex: "#E2D9F3" },
-  { name: "btn-blue-200", backgroundHex: "#9EC5FE" },
-  { name: "btn-teal-800", backgroundHex: "#0D503C" }
-];
+const CATSSTRAP_BUTTON_STATES = { default: "", hover: "hover-", active: "active-" };
+let catsStrapButtonPalette;
 
 /**
  * Calculate APCA contrast ratio (more accurate than WCAG contrast)
@@ -410,6 +383,15 @@ function parseRGB(colorStr) {
   return parseCssColorToRgbaNullable(colorStr);
 }
 
+function getRepresentativeGradientColor(image) {
+  if (!/^(?:repeating-)?(?:linear|radial|conic)-gradient\(/i.test(image)) return null;
+
+  const colorTokens = image.match(/(?:rgba?|hsla?|oklch|oklab|lch|lab|color)\([^)]*\)|#[0-9A-Fa-f]{3,8}/gi) || [];
+  const colors = colorTokens.map(parseRGB).filter((color) => color && color.a > 0);
+  // Use the middle nontransparent stop as before, not as a claim about rendered pixels.
+  return colors[Math.floor(colors.length / 2)] || null;
+}
+
 function compositeRgbaOver(top, bottom) {
   const outAlpha = top.a + (bottom.a * (1 - top.a));
   if (outAlpha <= 0) return { r: 0, g: 0, b: 0, a: 0 };
@@ -423,19 +405,26 @@ function compositeRgbaOver(top, bottom) {
 }
 
 /**
- * Stop at opaque paint; images and gradients visible through transparent layers
- * require manual review, not a guessed solid-color contrast ratio.
+ * Stop at opaque paint. Estimate gradients from CSS stops; other visible images
+ * still require manual review.
  */
 function getContrastBackgroundSample(element) {
   if (!(element instanceof Element)) return { backgroundRgb: null, requiresManualReview: false };
 
   const layers = [];
+  let isGradientEstimate = false;
   let current = element;
 
   while (current) {
     const styles = window.getComputedStyle(current);
     if (styles.backgroundImage && styles.backgroundImage !== "none") {
-      return { backgroundRgb: null, requiresManualReview: true };
+      for (const image of splitSelectorList(styles.backgroundImage)) {
+        if (image === "none") continue;
+        const representative = getRepresentativeGradientColor(image);
+        if (!representative) return { backgroundRgb: null, requiresManualReview: true };
+        layers.push(representative);
+        isGradientEstimate = true;
+      }
     }
 
     const bgColor = styles.backgroundColor;
@@ -458,12 +447,9 @@ function getContrastBackgroundSample(element) {
 
   return {
     backgroundRgb: { r: composed.r, g: composed.g, b: composed.b },
-    requiresManualReview: false
+    requiresManualReview: false,
+    isGradientEstimate
   };
-}
-
-function getEffectiveBackgroundColor(element) {
-  return getContrastBackgroundSample(element).backgroundRgb;
 }
 
 function splitSelectorList(selectorText) {
@@ -774,7 +760,8 @@ function getContrastStateSnapshots(element) {
   // If default text color cannot be resolved, skip state analysis
   if (!currentTextRgb) return [];
 
-  const currentBackgroundRgb = getEffectiveBackgroundColor(element);
+  const currentBackground = getContrastBackgroundSample(element);
+  const currentBackgroundRgb = currentBackground.backgroundRgb;
   const currentIsClipped = isElementClippedForContrastAudit(element);
   const snapshots = [];
 
@@ -792,7 +779,8 @@ function getContrastStateSnapshots(element) {
     const changed = currentIsClipped
       || snapshot.requiresManualReview
       || (!currentBackgroundRgb && snapshot.backgroundRgb)
-      || (snapshot.backgroundRgb && (rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
+      || (snapshot.backgroundRgb && (snapshot.isGradientEstimate !== currentBackground.isGradientEstimate
+      || rgbDistanceSquared(snapshot.textRgb, currentTextRgb) !== 0
       || rgbDistanceSquared(snapshot.backgroundRgb, currentBackgroundRgb) !== 0));
 
     if (!changed) continue;
@@ -1446,6 +1434,17 @@ function wireButtonPreviewHandlers(alertContainer) {
   for (const previewEl of previewButtons) {
     if (!(previewEl instanceof HTMLElement)) continue;
 
+    const catsStrapButton = Array.from(previewEl.classList)
+      .map((name) => catsStrapButtonPalette?.get(name))
+      .find(Boolean);
+    if (catsStrapButton) {
+      previewEl.classList.add("sml-compliance-catsstrap-preview");
+      for (const [state, { textRgb, backgroundRgb }] of Object.entries(catsStrapButton)) {
+        previewEl.style.setProperty(`--smlc-${state}-fg`, rgbToHex(textRgb));
+        previewEl.style.setProperty(`--smlc-${state}-bg`, rgbToHex(backgroundRgb));
+      }
+    }
+
     ["pointerdown", "mousedown", "mouseup", "click", "keydown", "keyup"].forEach((eventName) => {
       previewEl.addEventListener(eventName, (event) => {
         if (eventName === "keydown") {
@@ -1632,6 +1631,72 @@ function findClosestButtonStyles(textRgb, backgroundRgb, required, buttonPalette
   return matches.slice(0, Math.max(1, limit));
 }
 
+function parseCatsStrapButtonPalette(css) {
+  const palette = new Map();
+  // Outline variants depend on the surrounding surface, so only consider filled buttons.
+  for (const [, name, body] of css.matchAll(/^\.(btn-[A-Z][A-Za-z]+)\s*\{([^{}]+)\}/gm)) {
+    const colors = new Map(Array.from(body.matchAll(/--bs-btn-([\w-]+):\s*([^;]+)/g),
+      ([, key, value]) => [key, value.trim()]));
+    const states = Object.fromEntries(Object.entries(CATSSTRAP_BUTTON_STATES).map(([state, prefix]) => [state, {
+      textRgb: parseRGB(colors.get(`${prefix}color`)),
+      backgroundRgb: parseRGB(colors.get(`${prefix}bg`))
+    }]));
+    if (Object.values(states).every(({ textRgb, backgroundRgb }) => textRgb?.a === 1 && backgroundRgb?.a === 1)) {
+      palette.set(name, states);
+    }
+  }
+  return palette;
+}
+
+async function loadCatsStrapButtonPalette() {
+  if (catsStrapButtonPalette) return;
+
+  try {
+    const response = await fetch(getRuntimeAssetUrl("catsStrap.css"), { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const palette = parseCatsStrapButtonPalette(await response.text());
+    if (!palette.size) throw new Error("No usable named button colors");
+    catsStrapButtonPalette = palette;
+  } catch (error) {
+    console.warn("Tzedek: catsStrap button recommendations are unavailable.", error);
+  }
+}
+
+function findClosestCatsStrapButtons(textRgb, backgroundRgb, required, state) {
+  const matches = [];
+  for (const [name, states] of catsStrapButtonPalette || []) {
+    const contrast = Math.min(...Object.values(states).map((colors) =>
+      calculateAPCAContrast(colors.textRgb, colors.backgroundRgb)));
+    if (contrast < required) continue;
+
+    const candidate = states[state] || states.hover; // Bootstrap uses hover colors on focus-visible.
+    matches.push({
+      name,
+      contrast,
+      score: getButtonRecommendationScore(textRgb, backgroundRgb, candidate.textRgb, candidate.backgroundRgb)
+    });
+  }
+  return matches.sort((a, b) => a.score - b.score).slice(0, 3);
+}
+
+function buildCatsStrapButtonDownload(choices) {
+  if (!choices.length) return "";
+
+  const selectors = choices.map(({ name }) => `.${name}`).join(", ");
+  const rules = [
+    `/* Standalone button colors from catsStrap. Load this stylesheet and use any class below on a native <button>. */`,
+    `${selectors} { padding: .375em .75em; border: 1px solid currentColor; border-radius: .375em; font: inherit; cursor: pointer; }`,
+    `:is(${selectors}):focus-visible { outline: auto; outline-offset: 2px; }`
+  ];
+  const modifiers = { default: "", hover: ":is(:hover, :focus-visible)", active: ":active" };
+  for (const { name } of choices) {
+    for (const [state, { textRgb, backgroundRgb }] of Object.entries(catsStrapButtonPalette.get(name))) {
+      rules.push(`.${name}${modifiers[state]} { color: ${rgbToHex(textRgb)}; background: ${rgbToHex(backgroundRgb)}; }`);
+    }
+  }
+  return `${rules.join("\n")}\n`;
+}
+
 function findBestPaletteReplacement(textRgb, backgroundRgb, required, paletteEntries) {
   const textIsDarker = relativeLuminance(textRgb) <= relativeLuminance(backgroundRgb);
   const palette = paletteEntries.map((entry) => ({
@@ -1719,6 +1784,9 @@ function ensureInlineAlertStyles() {
     ".sml-compliance-button-contrast{font-weight:600;white-space:nowrap;}",
     ".sml-compliance-button-preview{margin:0;text-decoration:none;}",
     ".sml-compliance-button-preview:hover,.sml-compliance-button-preview:focus,.sml-compliance-button-preview:active{text-decoration:none;}",
+    ".sml-compliance-button-preview.sml-compliance-catsstrap-preview{color:var(--smlc-default-fg)!important;background:var(--smlc-default-bg)!important;}",
+    ".sml-compliance-button-preview.sml-compliance-catsstrap-preview:is(:hover,:focus-visible){color:var(--smlc-hover-fg)!important;background:var(--smlc-hover-bg)!important;}",
+    ".sml-compliance-button-preview.sml-compliance-catsstrap-preview:active{color:var(--smlc-active-fg)!important;background:var(--smlc-active-bg)!important;}",
     ".sml-compliance-color-source-highlight{outline:4px solid #a855f7 !important;outline-offset:2px !important;box-shadow:0 0 0 4px rgba(168,85,247,0.25) !important;}",
     ".sml-compliance-more-info{display:inline-block;margin-top:0.5rem;font-weight:600;text-decoration:underline;position:relative;z-index:2147483643;}",
     ".sml-compliance-alert-modal-header{margin-left:auto;max-width:min(48rem,95vw);position:relative;z-index:2147483643;isolation:isolate;}",
@@ -5753,7 +5821,10 @@ export class smlCompliance {
       () => this.checkInputs(),
       () => this.checkComplexControlNames(),
       () => this.checkAriaLabels(),
-      () => this.checkColorContrast(),
+      async () => {
+        await loadCatsStrapButtonPalette();
+        this.checkColorContrast();
+      },
       () => this.checkFocusIndicators(),
       () => this.checkKeyboardNavigation(),
       () => this.checkMedia(),
@@ -6308,6 +6379,7 @@ export class smlCompliance {
    * Check color contrast ratios
    */
   checkColorContrast() {
+    const smlc = this;
     ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
     const seenTargets = new Set();
     const textElements = getAuditCandidateElements(CONTRAST_AUDIT_TEXT_SELECTOR).map((element) => getContrastAuditTarget(element))
@@ -6350,9 +6422,8 @@ export class smlCompliance {
         ...stateSnapshots.filter(snapshot => snapshot.requiresManualReview).map(snapshot => snapshot.name)
       ];
       if (manualStates.length > 0) {
-        this.addAlert("info", "Color Contrast Needs Manual Review",
-          `A background image or gradient is visible behind this text in the ${manualStates.join(", ")} state(s). ` +
-          "Tzedek cannot determine a reliable contrast ratio from solid CSS colors alone. " +
+        smlc.addAlert("info", "Color Contrast Needs Manual Review",
+          `Tzedek could not estimate the background color from CSS in the ${manualStates.join(", ")} state(s). ` +
           "Review the background directly behind the text, including all animation frames and interactive states. " +
           "This is not an automatic contrast pass or failure.", elem);
       }
@@ -6360,7 +6431,8 @@ export class smlCompliance {
         ...(!defaultIsClipped ? [{
           name: "default",
           textRgb: textRGB,
-          backgroundRgb: bgRGB
+          backgroundRgb: bgRGB,
+          isGradientEstimate: backgroundSample.isGradientEstimate
         }] : []),
         ...stateSnapshots
       ].filter((snapshot) => snapshot.textRgb && snapshot.backgroundRgb) // Filter out snapshots with unresolved colors
@@ -6378,8 +6450,8 @@ export class smlCompliance {
 
       const contrast = lowestContrastSnapshot?.contrast ?? calculateAPCAContrast(textRGB, bgRGB);
 
-      const minContrast = this.cfg.level === "aaa" ? 7 : 4.5;
-      const largeTextMinContrast = this.cfg.level === "aaa" ? 4.5 : 3;
+      const minContrast = smlc.cfg.level === "aaa" ? 7 : 4.5;
+      const largeTextMinContrast = smlc.cfg.level === "aaa" ? 4.5 : 3;
       const isLargeText = fontSize >= 18 || (fontSize >= 14 && fontWeight > 600);
       
       const required = isLargeText ? largeTextMinContrast : minContrast;
@@ -6407,20 +6479,21 @@ export class smlCompliance {
         const bootstrapButtonSuggestions = isButtonTarget
           ? findClosestButtonStyles(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, BOOTSTRAP_BUTTON_PALETTE, 3)
           : [];
-        const smlButtonSuggestions = isButtonTarget
-          ? findClosestButtonStyles(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, SML_BUTTON_PALETTE, 3)
+        const catsStrapButtonSuggestions = isButtonTarget
+          ? findClosestCatsStrapButtons(auditedTextRgb, auditedBackgroundRgb, suggestionTarget, lowestContrastSnapshot.name)
           : [];
         const balancedNote = suggestions.balanced.note
           ? `${suggestions.balanced.note}<br>`
           : "";
         const worstStateLabel = lowestContrastSnapshot?.name || "default";
-        const contrastStateText = contrastSnapshots.map((snapshot) => `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1`).join(" | ");
+        const contrastStateText = contrastSnapshots.map((snapshot) =>
+          `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1${snapshot.isGradientEstimate ? " (estimated)" : ""}`).join(" | ");
         const stateSummary = contrastSnapshots.length > 1
           ? `<br>State checks: ${contrastStateText}`
           : "";
         const baseIntro =
           `Your Foreground ${formatContrastHex(currentForeground)} and Background ${formatContrastHex(currentBackground)} ` +
-          `have a ratio of ${contrast.toFixed(1)}:1 in the <code>${escapeHtml(worstStateLabel)}</code> state, which is less than ${required}:1. You can use these to correct: ` +
+          `have ${lowestContrastSnapshot.isGradientEstimate ? "an estimated" : "a"} ratio of ${contrast.toFixed(1)}:1 in the <code>${escapeHtml(worstStateLabel)}</code> state, which is less than ${required}:1. You can use these to correct: ` +
           `Sampled from ${elementDescriptor}. Element type: <code>${isButtonTarget ? "button/control" : "text content"}</code>.` +
           stateSummary +
           `<br>` +
@@ -6431,8 +6504,8 @@ export class smlCompliance {
         const message = isButtonTarget
           ? baseIntro +
             `<br><br><strong>Button replacement strategies</strong><br>` +
-            `1) Bootstrap button replacements:<br>${formatButtonChoiceList(bootstrapButtonSuggestions)}` +
-            `<br>2) sml.css button replacements:<br>${formatButtonChoiceList(smlButtonSuggestions)}`
+            `1) catsStrap named-color buttons:<br>${catsStrapButtonPalette ? formatButtonChoiceList(catsStrapButtonSuggestions) : "catsStrap palette could not be loaded."}` +
+            `<br>2) Bootstrap button replacements:<br>${formatButtonChoiceList(bootstrapButtonSuggestions)}`
           : baseIntro +
             `<br><br><strong>Color change strategies</strong><br>` +
             `${balancedNote}` +
@@ -6452,8 +6525,9 @@ export class smlCompliance {
               `Background ${formatNamedColorChoice(legacyThemeSuggestion?.background, sampledTargetId, formatContrastHex)} | ` +
             `Contrast ${(legacyThemeSuggestion?.contrast ?? 0).toFixed(1)}:1`;
 
-        this.addAlert(level, "Low Color Contrast", message, elem, {
+        smlc.addAlert(level, "Low Color Contrast", message, elem, {
           messageHtml: true,
+          ...(catsStrapButtonSuggestions.length ? { catsStrapButtonCss: buildCatsStrapButtonDownload(catsStrapButtonSuggestions) } : {}),
           contrastSwatches: [
             { label: "FG", hex: currentForeground },
             { label: "BG", hex: currentBackground }

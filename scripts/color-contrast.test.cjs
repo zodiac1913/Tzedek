@@ -7,7 +7,7 @@ const { spawn } = require("node:child_process");
 const { test } = require("node:test");
 
 const source = fs.readFileSync(path.join(__dirname, "../src/runtime/smlCompliance.js"), "utf8");
-const helpers = source.slice(source.indexOf("function calculateAPCAContrast("), source.indexOf("function splitSelectorList("));
+const helpers = source.slice(source.indexOf("function calculateAPCAContrast("), source.indexOf("function computeSelectorSpecificity("));
 const checkStart = source.indexOf("  checkColorContrast() {");
 const checkEnd = source.indexOf("\n  /**", checkStart);
 
@@ -34,9 +34,9 @@ test("Legacy colors retain their values; unresolved backgrounds never become whi
   for (const value of ["", "var(--color-blue-600)", "currentcolor", "inherit", "invalid", "rgb(1, 2, 3) junk"]) {
     assert.equal(context.parseRGB(value), null, value);
   }
-  assert.equal(context.getEffectiveBackgroundColor(new Element("unsupported", body)), null);
+  assert.equal(context.getContrastBackgroundSample(new Element("unsupported", body)).backgroundRgb, null);
   assert.equal(warnings.length, 1);
-  assert.deepEqual(plain(context.getEffectiveBackgroundColor(new Element("rgba(0, 0, 255, 0.5)", body))),
+  assert.deepEqual(plain(context.getContrastBackgroundSample(new Element("rgba(0, 0, 255, 0.5)", body)).backgroundRgb),
     { r: 127.5, g: 127.5, b: 255 });
 });
 
@@ -69,7 +69,7 @@ test("Browser contrast checks preserve real colors and exclude clipped default s
       let getContrastStateSnapshots = () => [];
       const actualStateSnapshots = (() => {
         ${source.slice(source.indexOf("const CONTRAST_STATEFUL_SELECTOR ="), source.indexOf("const ALERT_CLASSES ="))}
-        ${source.slice(source.indexOf("function splitSelectorList("), source.indexOf("function clampColorChannel("))}
+        ${source.slice(source.indexOf("function computeSelectorSpecificity("), source.indexOf("function clampColorChannel("))}
         ${source.slice(source.indexOf("function rgbDistanceSquared("), source.indexOf("function rgbDistanceSquared(") + source.slice(source.indexOf("function rgbDistanceSquared(")).indexOf("\n}\n") + 3)}
         return element => {
           ACCESSIBLE_CSS_STYLE_RULES_CACHE = null;
@@ -82,7 +82,9 @@ test("Browser contrast checks preserve real colors and exclude clipped default s
       const formatHexWithSwatch = hex => hex;
       const describeElementForContrast = () => "button.bg-blue-600";
       const BOOTSTRAP_COLOR_PALETTE = [], LEGACY_THEME_COLOR_PALETTE = [];
-      const BOOTSTRAP_BUTTON_PALETTE = [], SML_BUTTON_PALETTE = [];
+      const BOOTSTRAP_BUTTON_PALETTE = [];
+      const catsStrapButtonPalette = null;
+      const findClosestCatsStrapButtons = () => [];
       const findBestPaletteReplacement = () => null;
       const findClosestButtonStyles = () => [];
       const formatButtonChoiceList = () => "";
@@ -93,7 +95,7 @@ test("Browser contrast checks preserve real colors and exclude clipped default s
       const expect = (condition, message) => { if (!condition) throw new Error(message); };
       try {
         const button = document.querySelector("button");
-        const bg = getEffectiveBackgroundColor(button);
+        const bg = getContrastBackgroundSample(button).backgroundRgb;
         expect(Math.abs(bg.r - 21) <= 2 && Math.abs(bg.g - 93) <= 2 && Math.abs(bg.b - 252) <= 2,
           "OKLCH blue must resolve near #155DFC: " + JSON.stringify(bg));
         const ratio = calculateAPCAContrast(parseRGB(getComputedStyle(button).color), bg);
@@ -105,7 +107,7 @@ test("Browser contrast checks preserve real colors and exclude clipped default s
         expect(parseRGB("transparent").a === 0, "Transparent background");
         expect(parseRGB("color(srgb 1 0 0)").r === 255, "CSS color() conversion");
         button.style.backgroundColor = "oklch(70% .1 260)";
-        const failingBg = getEffectiveBackgroundColor(button);
+        const failingBg = getContrastBackgroundSample(button).backgroundRgb;
         checker.checkColorContrast();
         expect(alerts.length === 1, "Actually failing button must produce a finding");
         expect(alerts[0][2].includes("Background " + rgbToHex(failingBg)), "Finding must use measured background");
@@ -121,8 +123,11 @@ test("Browser contrast checks preserve real colors and exclude clipped default s
         };
         button.style.backgroundImage = 'url("rack.png")';
         reviewImage();
-        button.style.backgroundImage = "linear-gradient(white, black)";
-        reviewImage();
+        button.style.backgroundImage = "linear-gradient(black, white)";
+        alerts.length = 0;
+        checker.checkColorContrast();
+        expect(alerts.length === 1 && alerts[0][1] === "Low Color Contrast", "Low gradient estimate must not become a manual-review notice");
+        expect(alerts[0][2].includes("estimated ratio of 1.0:1"), "Gradient ratio is labeled as an estimate");
         button.style.backgroundImage = "none";
         button.style.backgroundColor = "transparent";
         document.body.style.backgroundImage = 'url("rack.png")';

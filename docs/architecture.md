@@ -39,13 +39,25 @@ Important constraint:
 
 Do not remove all legacy theme-derived styling. Tzedek's contrast guidance uses class-based alternatives, so the palette and relevant class surface should remain available unless there is a better replacement model.
 
+`src/runtime/assets/catsStrap.css` keeps color utilities and named button variants
+without Bootstrap's reset or layout rules. Refresh it with
+`node scripts/import-catsstrap-colors.cjs <path-to-catsStrap.css>` and sync both packages.
+Tzedek ranks filled named buttons by similarity to the audited colors after checking
+their actual default, hover, and active contrast; outline colors depend on the page
+background and are not ranked. Preview colors are scoped to Tzedek's own buttons.
+Use **Download recommended button CSS** in the issue list to get a standalone
+stylesheet for the named recommendations. Apply a class from that stylesheet
+to a native button; neither catsStrap nor Bootstrap is required.
+
 Contrast sampling uses computed styles, including resolved CSS custom properties.
 Modern color formats such as Tailwind's OKLCH colors are converted to sRGB with a
 detached browser canvas before calculating WCAG contrast. An unresolvable solid
 background skips the sample with a console warning instead of incorrectly using
-the ancestor's background or white. Visible CSS background images and gradients
-produce an informational manual-review notice without a guessed ratio or palette
-replacement. Review animated backgrounds across frames. Opaque solid backgrounds
+the ancestor's background or white. CSS gradients with readable color stops use a
+representative stop to estimate contrast and offer palette replacements on low
+scores. Verify these estimates against the rendered gradient. Other visible
+background images still produce a manual-review notice without a ratio.
+Review animated backgrounds across frames. Opaque solid backgrounds
 stop ancestor traversal, so an image hidden behind a solid control does not
 trigger that notice. Default and probed interactive states are handled separately;
 solid states can still produce measured failures. This is not screenshot analysis:
