@@ -729,6 +729,9 @@ function measureContrastStateSnapshot(element, stateOverrides) {
       if (!(cloneNode instanceof HTMLElement) || !(propertyMap instanceof Map)) continue;
 
       for (const [propertyName, declaration] of propertyMap.entries()) {
+        // Simulating a stylesheet rule via the clone's inline style must not promote it in the cascade.
+        if (propertyName === "color" && cloneNode.style.getPropertyValue("color")
+          && (!declaration.important || cloneNode.style.getPropertyPriority("color") === "important")) continue;
         cloneNode.style.setProperty(propertyName, declaration.value, declaration.important ? "important" : "");
       }
     }

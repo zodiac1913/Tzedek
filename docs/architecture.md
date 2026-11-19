@@ -60,7 +60,9 @@ background images still produce a manual-review notice without a ratio.
 Review animated backgrounds across frames. Opaque solid backgrounds
 stop ancestor traversal, so an image hidden behind a solid control does not
 trigger that notice. Default and probed interactive states are handled separately;
-solid states can still produce measured failures. This is not screenshot analysis:
+solid states can still produce measured failures. The probe preserves inline text
+color unless an important state rule overrides a normal inline declaration.
+This is not screenshot analysis:
 separate image/video elements and pseudo-element overlays are not sampled.
 
 ## Target Runtime Split
