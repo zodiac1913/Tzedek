@@ -4936,9 +4936,32 @@ function isSmlcOwnedElement(element) {
   return false;
 }
 
+function isCloudflareJsdIframe(element) {
+  if (!(element instanceof HTMLIFrameElement)
+    || element.hasAttribute("src")
+    || element.hasAttribute("title")
+    || element.hasAttribute("id")) return false;
+
+  const styles = window.getComputedStyle(element);
+  if (styles.width !== "1px" || styles.height !== "1px"
+    || styles.visibility !== "hidden"
+    || styles.position !== "absolute"
+    || styles.left !== "0px" || styles.top !== "0px"
+    || styles.borderStyle !== "none") return false;
+
+  return Array.from(document.scripts).some((script) => {
+    const source = script.getAttribute("src") || "";
+    const inlineCode = script.textContent || "";
+    return source.includes("/cdn-cgi/challenge-platform/scripts/jsd/main.js")
+      || inlineCode.includes("window.__CF$cv$params")
+      || inlineCode.includes("/cdn-cgi/challenge-platform/scripts/jsd/main.js");
+  });
+}
+
 function getAuditCandidateElements(selector, root = document) {
   const queryRoot = root && typeof root.querySelectorAll === "function" ? root : document;
-  return Array.from(queryRoot.querySelectorAll(selector)).filter((element) => !isSmlcOwnedElement(element));
+  return Array.from(queryRoot.querySelectorAll(selector)).filter((element) =>
+    !isSmlcOwnedElement(element) && !isCloudflareJsdIframe(element));
 }
 
 function resolveComplianceAuditUrl(rawHref) {
