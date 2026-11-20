@@ -96,6 +96,18 @@ const CONTRAST_STATE_DEFINITIONS = [
     containsPattern: /:visited\b/i,
     replacePattern: /:visited\b/gi,
     isRelevantFor: (stateOwner) => stateOwner instanceof HTMLAnchorElement && stateOwner.hasAttribute("href")
+  },
+  {
+    name: "disabled",
+    // Disabled styling can be keyed by the :disabled pseudo-class, the
+    // [disabled] attribute, or a .disabled utility class. Match any of them so
+    // the simulated disabled state reflects what the control looks like when
+    // it is turned off (e.g. Bootstrap's --bs-btn-disabled-* variables).
+    containsPattern: /(?::disabled\b|\[disabled\b[^\]]*\]|\.disabled\b)/i,
+    replacePattern: /(?::disabled\b|\[disabled\b[^\]]*\]|\.disabled\b)/gi,
+    simulatedAttributes: [{ name: "disabled", value: "" }],
+    isRelevantFor: (stateOwner) => stateOwner instanceof Element
+      && stateOwner.matches("button, input, select, textarea, fieldset, optgroup, option, [role='button'], [aria-disabled]")
   }
 ];
 
@@ -674,7 +686,7 @@ function collectContrastStateOverrides(element, stateDefinition, accessibleRules
   return nodeOverrides;
 }
 
-function measureContrastStateSnapshot(element, stateOverrides) {
+function measureContrastStateSnapshot(element, stateOverrides, stateDefinition) {
   if (!(element instanceof Element)) return null;
 
   const chain = buildContrastProbeChain(element);
@@ -739,6 +751,21 @@ function measureContrastStateSnapshot(element, stateOverrides) {
     const clonedTarget = cloneMap.get(element);
     if (!(clonedTarget instanceof Element)) return null;
 
+    // Reflect the simulated condition (e.g. the disabled attribute) onto the
+    // clone so attribute/pseudo-class selectors and var() references that only
+    // apply in that state resolve against the probe.
+    if (Array.isArray(stateDefinition?.simulatedAttributes)) {
+      for (const attribute of stateDefinition.simulatedAttributes) {
+        if (attribute && typeof attribute.name === "string") {
+          try {
+            clonedTarget.setAttribute(attribute.name, attribute.value ?? "");
+          } catch {
+            // Ignore attributes the cloned element will not accept.
+          }
+        }
+      }
+    }
+
     const textRgb = parseRGB(window.getComputedStyle(clonedTarget).color);
     // Skip this snapshot if text color cannot be resolved
     if (!textRgb) return null;
@@ -776,7 +803,7 @@ function getContrastStateSnapshots(element) {
     const stateOverrides = collectContrastStateOverrides(element, stateDefinition, accessibleRules);
     if (stateOverrides.size === 0) continue;
 
-    const snapshot = measureContrastStateSnapshot(element, stateOverrides);
+    const snapshot = measureContrastStateSnapshot(element, stateOverrides, stateDefinition);
     if (!snapshot) continue;
 
     const changed = currentIsClipped
@@ -6446,7 +6473,12 @@ export class smlCompliance {
 
       if (contrastSnapshots.length === 0) continue;
 
-      const lowestContrastSnapshot = contrastSnapshots.reduce((lowest, snapshot) => {
+      // WCAG 1.4.3 exempts inactive (disabled) controls from the contrast
+      // minimum, so disabled is measured and reported but never drives a
+      // pass/fail decision on its own.
+      const CONTRAST_EXEMPT_STATES = new Set(["disabled"]);
+      const enforceableSnapshots = contrastSnapshots.filter((snapshot) => !CONTRAST_EXEMPT_STATES.has(snapshot.name));
+      const lowestContrastSnapshot = enforceableSnapshots.reduce((lowest, snapshot) => {
         if (!lowest) return snapshot;
         return snapshot.contrast < lowest.contrast ? snapshot : lowest;
       }, null);
@@ -6491,8 +6523,10 @@ export class smlCompliance {
         const worstStateLabel = lowestContrastSnapshot?.name || "default";
         const contrastStateText = contrastSnapshots.map((snapshot) =>
           `${snapshot.name} ${snapshot.contrast.toFixed(1)}:1${snapshot.isGradientEstimate ? " (estimated)" : ""}`).join(" | ");
+        const hasExemptState = contrastSnapshots.some((snapshot) => CONTRAST_EXEMPT_STATES.has(snapshot.name));
         const stateSummary = contrastSnapshots.length > 1
           ? `<br>State checks: ${contrastStateText}`
+            + (hasExemptState ? " (disabled is reported for reference; WCAG 1.4.3 exempts inactive controls)" : "")
           : "";
         const baseIntro =
           `Your Foreground ${formatContrastHex(currentForeground)} and Background ${formatContrastHex(currentBackground)} ` +
