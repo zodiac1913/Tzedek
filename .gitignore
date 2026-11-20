@@ -6,3 +6,4 @@ tzedek-extension*.zip
 .LSOverride
 
 .vscode/*
+!.vscode/settings.json
